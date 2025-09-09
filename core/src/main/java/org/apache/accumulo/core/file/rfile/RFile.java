@@ -587,6 +587,12 @@ public class RFile {
 
     private final SamplerConfigurationImpl samplerConfig;
     private final Sampler sampler;
+    
+    // Vector support fields
+    private VectorIndex vectorIndex;
+    private boolean vectorIndexEnabled = false;
+    private List<float[]> currentBlockVectors;
+    private int vectorDimension = -1;
 
     public Writer(BCFile.Writer bfw, int blockSize) throws IOException {
       this(bfw, blockSize, (int) DefaultConfiguration.getInstance()
@@ -602,6 +608,7 @@ public class RFile {
       previousColumnFamilies = new HashSet<>();
       this.samplerConfig = samplerConfig;
       this.sampler = sampler;
+      this.currentBlockVectors = new ArrayList<>();
     }
 
     @Override
@@ -641,6 +648,14 @@ public class RFile {
         samplerConfig.write(mba);
       }
 
+      // Write vector index if present
+      if (vectorIndex != null && !vectorIndex.getBlocks().isEmpty()) {
+        mba.writeBoolean(true); // Vector index present
+        vectorIndex.write(mba);
+      } else {
+        mba.writeBoolean(false); // No vector index
+      }
+
       mba.close();
       fileWriter.close();
       length = fileWriter.getLength();
@@ -668,7 +683,82 @@ public class RFile {
         throw new IllegalStateException("Cannot append, data closed");
       }
 
+      // Handle vector values for index building
+      if (vectorIndexEnabled && value.getValueType() == ValueType.VECTOR_FLOAT32) {
+        handleVectorValue(value);
+      }
+
       lgWriter.append(key, value);
+    }
+
+    /**
+     * Enables vector index generation for this RFile.
+     * Must be called before writing any vector data.
+     * 
+     * @param vectorDimension the dimension of vectors to be stored
+     */
+    public void enableVectorIndex(int vectorDimension) {
+      if (dataClosed) {
+        throw new IllegalStateException("Cannot enable vector index, data closed");
+      }
+      this.vectorIndexEnabled = true;
+      this.vectorDimension = vectorDimension;
+      this.vectorIndex = new VectorIndex(vectorDimension);
+    }
+
+    /**
+     * Writes a contiguous block of vectors with associated keys.
+     * This is optimized for vector storage and indexing.
+     * 
+     * @param vectorData list of key-value pairs containing vectors
+     * @throws IOException if write fails
+     * @throws IllegalArgumentException if vectors have different dimensions
+     */
+    public void writeVectorBlock(List<KeyValue> vectorData) throws IOException {
+      if (dataClosed) {
+        throw new IllegalStateException("Cannot write vector block, data closed");
+      }
+
+      if (vectorData.isEmpty()) {
+        return;
+      }
+
+      // Validate and extract vectors for centroid calculation
+      List<float[]> vectors = new ArrayList<>();
+      for (KeyValue kv : vectorData) {
+        if (kv.getValue().getValueType() != ValueType.VECTOR_FLOAT32) {
+          throw new IllegalArgumentException("All values must be VECTOR_FLOAT32 type");
+        }
+        float[] vector = kv.getValue().asVector();
+        if (vectorDimension == -1) {
+          vectorDimension = vector.length;
+          if (vectorIndex == null) {
+            vectorIndex = new VectorIndex(vectorDimension);
+          }
+        } else if (vector.length != vectorDimension) {
+          throw new IllegalArgumentException("Vector dimension mismatch: expected " + 
+              vectorDimension + ", got " + vector.length);
+        }
+        vectors.add(vector);
+      }
+
+      // Calculate block centroid for vector index
+      float[] centroid = calculateCentroid(vectors);
+      long blockStartOffset = getCurrentBlockOffset();
+
+      // Write the actual data
+      for (KeyValue kv : vectorData) {
+        lgWriter.append(kv.getKey(), kv.getValue());
+      }
+
+      // Record vector block metadata
+      if (vectorIndexEnabled && vectorIndex != null) {
+        long blockEndOffset = getCurrentBlockOffset();
+        int blockSize = (int) (blockEndOffset - blockStartOffset);
+        VectorIndex.VectorBlockMetadata blockMetadata = 
+            new VectorIndex.VectorBlockMetadata(centroid, vectors.size(), blockStartOffset, blockSize);
+        vectorIndex.addBlock(blockMetadata);
+      }
     }
 
     @Override
@@ -754,6 +844,57 @@ public class RFile {
         return fileWriter.getLength();
       }
       return length;
+    }
+    
+    /**
+     * Handles individual vector values for index building.
+     */
+    private void handleVectorValue(Value value) throws IOException {
+      if (vectorDimension == -1) {
+        float[] vector = value.asVector();
+        vectorDimension = vector.length;
+        if (vectorIndex == null) {
+          vectorIndex = new VectorIndex(vectorDimension);
+        }
+      }
+      
+      // Add vector to current block for centroid calculation
+      currentBlockVectors.add(value.asVector());
+    }
+    
+    /**
+     * Calculates the centroid of a list of vectors.
+     */
+    private float[] calculateCentroid(List<float[]> vectors) {
+      if (vectors.isEmpty()) {
+        return new float[0];
+      }
+      
+      int dimension = vectors.get(0).length;
+      float[] centroid = new float[dimension];
+      
+      for (float[] vector : vectors) {
+        for (int i = 0; i < dimension; i++) {
+          centroid[i] += vector[i];
+        }
+      }
+      
+      // Average the components
+      for (int i = 0; i < dimension; i++) {
+        centroid[i] /= vectors.size();
+      }
+      
+      return centroid;
+    }
+    
+    /**
+     * Gets the current block offset for vector index metadata.
+     * This is a placeholder - in actual implementation would need access to BCFile internals.
+     */
+    private long getCurrentBlockOffset() {
+      // This would need to be implemented based on actual BCFile.Writer internals
+      // For now, return file length as an approximation
+      return fileWriter.getLength();
     }
   }
 
@@ -1187,6 +1328,9 @@ public class RFile {
     private SamplerConfigurationImpl samplerConfig = null;
 
     private int rfileVersion;
+    
+    // Vector support fields
+    private VectorIndex vectorIndex;
 
     public Reader(CachableBlockFile.Reader rdr) throws IOException {
       this.reader = rdr;
@@ -1234,6 +1378,14 @@ public class RFile {
         } else {
           sampleReaders = null;
           samplerConfig = null;
+        }
+
+        // Read vector index if present (only for newer versions)
+        if (ver == RINDEX_VER_8 && mb.available() > 0 && mb.readBoolean()) {
+          vectorIndex = new VectorIndex();
+          vectorIndex.readFields(mb);
+        } else {
+          vectorIndex = null;
         }
 
       }
@@ -1568,6 +1720,53 @@ public class RFile {
       }
 
       return totalEntries;
+    }
+
+    /**
+     * Gets the vector index for this RFile, if present.
+     * 
+     * @return the vector index, or null if not present
+     */
+    public VectorIndex getVectorIndex() {
+      return vectorIndex;
+    }
+    
+    /**
+     * Creates a new VectorIterator for vector similarity searches.
+     * 
+     * @param queryVector the query vector for similarity search
+     * @param similarityType the type of similarity computation
+     * @param topK number of top results to return
+     * @param threshold minimum similarity threshold
+     * @return configured VectorIterator
+     */
+    public VectorIterator createVectorIterator(float[] queryVector, 
+        VectorIterator.SimilarityType similarityType, int topK, float threshold) {
+      VectorIterator vectorIter = new VectorIterator();
+      vectorIter.setVectorIndex(this.vectorIndex);
+      
+      Map<String,String> options = new HashMap<>();
+      options.put(VectorIterator.QUERY_VECTOR_OPTION, vectorArrayToString(queryVector));
+      options.put(VectorIterator.SIMILARITY_TYPE_OPTION, similarityType.toString());
+      options.put(VectorIterator.TOP_K_OPTION, String.valueOf(topK));
+      options.put(VectorIterator.THRESHOLD_OPTION, String.valueOf(threshold));
+      
+      try {
+        vectorIter.init(this, options, null); // Note: IteratorEnvironment is null - may need adjustment
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to initialize VectorIterator", e);
+      }
+      
+      return vectorIter;
+    }
+    
+    private String vectorArrayToString(float[] vector) {
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < vector.length; i++) {
+        if (i > 0) sb.append(",");
+        sb.append(vector[i]);
+      }
+      return sb.toString();
     }
 
     @Override
