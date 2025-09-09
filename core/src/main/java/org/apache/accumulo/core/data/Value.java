@@ -26,6 +26,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
@@ -41,6 +42,7 @@ import org.apache.hadoop.io.WritableComparator;
 public class Value implements WritableComparable<Object> {
   private static final byte[] EMPTY = new byte[0];
   protected byte[] value;
+  protected ValueType valueType = ValueType.BYTES;  // Default to BYTES type for backward compatibility
 
   /**
    * Creates a zero-size sequence.
@@ -173,6 +175,62 @@ public class Value implements WritableComparable<Object> {
   public int getSize() {
     assert (value != null);
     return this.value.length;
+  }
+
+  /**
+   * Gets the value type of this Value.
+   *
+   * @return the ValueType
+   */
+  public ValueType getValueType() {
+    return valueType;
+  }
+
+  /**
+   * Sets the value type of this Value.
+   *
+   * @param valueType the ValueType to set
+   */
+  public void setValueType(ValueType valueType) {
+    this.valueType = valueType;
+  }
+
+  /**
+   * Creates a new Value containing a float32 vector.
+   * 
+   * @param vector the float array containing vector components
+   * @return a new Value with type VECTOR_FLOAT32
+   */
+  public static Value newVector(float[] vector) {
+    requireNonNull(vector);
+    ByteBuffer buffer = ByteBuffer.allocate(vector.length * 4); // 4 bytes per float
+    FloatBuffer floatBuffer = buffer.asFloatBuffer();
+    floatBuffer.put(vector);
+    
+    Value value = new Value(buffer.array());
+    value.setValueType(ValueType.VECTOR_FLOAT32);
+    return value;
+  }
+
+  /**
+   * Interprets this Value as a float32 vector.
+   * 
+   * @return the float array representation of the vector
+   * @throws IllegalStateException if this Value is not of type VECTOR_FLOAT32
+   * @throws IllegalArgumentException if the byte array length is not divisible by 4
+   */
+  public float[] asVector() {
+    if (valueType != ValueType.VECTOR_FLOAT32) {
+      throw new IllegalStateException("Value is not a VECTOR_FLOAT32 type: " + valueType);
+    }
+    if (value.length % 4 != 0) {
+      throw new IllegalArgumentException("Vector byte array length must be divisible by 4, got: " + value.length);
+    }
+    
+    FloatBuffer floatBuffer = ByteBuffer.wrap(value).asFloatBuffer();
+    float[] result = new float[floatBuffer.remaining()];
+    floatBuffer.get(result);
+    return result;
   }
 
   @Override
