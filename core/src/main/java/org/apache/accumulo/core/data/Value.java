@@ -43,7 +43,8 @@ import org.apache.hadoop.io.WritableComparator;
 public class Value implements WritableComparable<Object> {
   private static final byte[] EMPTY = new byte[0];
   protected byte[] value;
-  protected ValueType valueType = ValueType.BYTES;  // Default to BYTES type for backward compatibility
+  protected ValueType valueType = ValueType.BYTES; // Default to BYTES type for backward
+                                                   // compatibility
 
   /**
    * Creates a zero-size sequence.
@@ -198,7 +199,7 @@ public class Value implements WritableComparable<Object> {
 
   /**
    * Creates a new Value containing a float32 vector.
-   * 
+   *
    * @param vector the float array containing vector components
    * @return a new Value with type VECTOR_FLOAT32
    */
@@ -207,7 +208,7 @@ public class Value implements WritableComparable<Object> {
     ByteBuffer buffer = ByteBuffer.allocate(vector.length * 4); // 4 bytes per float
     FloatBuffer floatBuffer = buffer.asFloatBuffer();
     floatBuffer.put(vector);
-    
+
     Value value = new Value(buffer.array());
     value.setValueType(ValueType.VECTOR_FLOAT32);
     return value;
@@ -215,7 +216,7 @@ public class Value implements WritableComparable<Object> {
 
   /**
    * Interprets this Value as a float32 vector.
-   * 
+   *
    * @return the float array representation of the vector
    * @throws IllegalStateException if this Value is not of type VECTOR_FLOAT32
    * @throws IllegalArgumentException if the byte array length is not divisible by 4
@@ -225,9 +226,10 @@ public class Value implements WritableComparable<Object> {
       throw new IllegalStateException("Value is not a VECTOR_FLOAT32 type: " + valueType);
     }
     if (value.length % 4 != 0) {
-      throw new IllegalArgumentException("Vector byte array length must be divisible by 4, got: " + value.length);
+      throw new IllegalArgumentException(
+          "Vector byte array length must be divisible by 4, got: " + value.length);
     }
-    
+
     FloatBuffer floatBuffer = ByteBuffer.wrap(value).asFloatBuffer();
     float[] result = new float[floatBuffer.remaining()];
     floatBuffer.get(result);
@@ -322,9 +324,9 @@ public class Value implements WritableComparable<Object> {
   }
 
   /**
-   * Splits a large vector into multiple Values for storage across multiple key-value pairs.
-   * This enables support for very large embeddings that exceed single value size limits.
-   * 
+   * Splits a large vector into multiple Values for storage across multiple key-value pairs. This
+   * enables support for very large embeddings that exceed single value size limits.
+   *
    * @param largeVector the vector to split
    * @param chunkSize maximum number of float components per chunk
    * @return array of Value objects containing vector chunks
@@ -334,26 +336,26 @@ public class Value implements WritableComparable<Object> {
     if (chunkSize <= 0) {
       throw new IllegalArgumentException("Chunk size must be positive");
     }
-    
+
     int numChunks = (largeVector.length + chunkSize - 1) / chunkSize; // Ceiling division
     Value[] chunks = new Value[numChunks];
-    
+
     for (int chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
       int startIdx = chunkIdx * chunkSize;
       int endIdx = Math.min(startIdx + chunkSize, largeVector.length);
       int currentChunkSize = endIdx - startIdx;
-      
+
       float[] chunk = new float[currentChunkSize];
       System.arraycopy(largeVector, startIdx, chunk, 0, currentChunkSize);
       chunks[chunkIdx] = Value.newVector(chunk);
     }
-    
+
     return chunks;
   }
-  
+
   /**
    * Reassembles a vector from multiple Value chunks.
-   * 
+   *
    * @param chunks array of Value objects containing vector chunks
    * @return the reassembled complete vector
    * @throws IllegalArgumentException if any chunk is not a vector type
@@ -363,7 +365,7 @@ public class Value implements WritableComparable<Object> {
     if (chunks.length == 0) {
       return new float[0];
     }
-    
+
     // Calculate total size
     int totalSize = 0;
     for (Value chunk : chunks) {
@@ -372,7 +374,7 @@ public class Value implements WritableComparable<Object> {
       }
       totalSize += chunk.asVector().length;
     }
-    
+
     // Reassemble vector
     float[] result = new float[totalSize];
     int offset = 0;
@@ -381,20 +383,20 @@ public class Value implements WritableComparable<Object> {
       System.arraycopy(chunkVector, 0, result, offset, chunkVector.length);
       offset += chunkVector.length;
     }
-    
+
     return result;
   }
-  
+
   /**
    * Creates a compressed vector Value using the specified compression type.
-   * 
+   *
    * @param vector the vector to compress
    * @param compressionType the compression method to use
    * @return a new Value containing compressed vector data
    */
   public static Value newCompressedVector(float[] vector, byte compressionType) {
     requireNonNull(vector);
-    
+
     VectorCompression.CompressedVector compressed;
     switch (compressionType) {
       case VectorCompression.COMPRESSION_QUANTIZED_8BIT:
@@ -407,22 +409,22 @@ public class Value implements WritableComparable<Object> {
       default:
         return newVector(vector); // No compression
     }
-    
+
     // Store compressed data with metadata
     ByteBuffer buffer = ByteBuffer.allocate(compressed.getData().length + 12); // data + 3 floats
     buffer.put(compressed.getData());
     buffer.putFloat(compressed.getMin());
     buffer.putFloat(compressed.getMax());
     buffer.putFloat(compressionType); // Store as float for simplicity
-    
+
     Value value = new Value(buffer.array());
     value.setValueType(ValueType.VECTOR_FLOAT32);
     return value;
   }
-  
+
   /**
    * Decompresses a vector Value that was created with compression.
-   * 
+   *
    * @return the decompressed float array
    * @throws IllegalStateException if this Value is not a compressed vector
    */
@@ -430,27 +432,27 @@ public class Value implements WritableComparable<Object> {
     if (valueType != ValueType.VECTOR_FLOAT32) {
       throw new IllegalStateException("Value is not a vector type");
     }
-    
+
     ByteBuffer buffer = ByteBuffer.wrap(value);
-    
+
     // Check if this looks like compressed data (has metadata at end)
     if (buffer.remaining() < 12) {
       // Assume uncompressed
       return asVector();
     }
-    
+
     // Extract compression metadata from end
     int dataLength = buffer.remaining() - 12;
     byte[] compressedData = new byte[dataLength];
     buffer.get(compressedData);
-    
+
     float min = buffer.getFloat();
     float max = buffer.getFloat();
     byte compressionType = (byte) buffer.getFloat();
-    
-    VectorCompression.CompressedVector compressed = 
+
+    VectorCompression.CompressedVector compressed =
         new VectorCompression.CompressedVector(compressedData, min, max, compressionType);
-    
+
     return VectorCompression.decompress(compressed);
   }
 

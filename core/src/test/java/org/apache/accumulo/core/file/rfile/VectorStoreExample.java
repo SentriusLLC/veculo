@@ -18,7 +18,6 @@
  */
 package org.apache.accumulo.core.file.rfile;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,12 +25,11 @@ import java.util.List;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.KeyValue;
 import org.apache.accumulo.core.data.Value;
-import org.apache.accumulo.core.data.ValueType;
 
 /**
- * Example demonstrating how to use the vector store functionality.
- * This class shows the complete workflow from creating vector values
- * to writing them with RFile.Writer and performing similarity searches.
+ * Example demonstrating how to use the vector store functionality. This class shows the complete
+ * workflow from creating vector values to writing them with RFile.Writer and performing similarity
+ * searches.
  */
 public class VectorStoreExample {
 
@@ -71,11 +69,11 @@ public class VectorStoreExample {
     float[] centroid2 = {0.0f, 1.0f, 0.0f};
     float[] centroid3 = {0.0f, 0.0f, 1.0f};
 
-    VectorIndex.VectorBlockMetadata block1 = 
+    VectorIndex.VectorBlockMetadata block1 =
         new VectorIndex.VectorBlockMetadata(centroid1, 100, 0L, 1024);
-    VectorIndex.VectorBlockMetadata block2 = 
+    VectorIndex.VectorBlockMetadata block2 =
         new VectorIndex.VectorBlockMetadata(centroid2, 150, 1024L, 1536);
-    VectorIndex.VectorBlockMetadata block3 = 
+    VectorIndex.VectorBlockMetadata block3 =
         new VectorIndex.VectorBlockMetadata(centroid3, 75, 2560L, 768);
 
     index.addBlock(block1);
@@ -85,8 +83,8 @@ public class VectorStoreExample {
     System.out.println("Added " + index.getBlocks().size() + " blocks to index");
     for (int i = 0; i < index.getBlocks().size(); i++) {
       VectorIndex.VectorBlockMetadata block = index.getBlocks().get(i);
-      System.out.println("Block " + i + ": " + block.getVectorCount() + " vectors, " +
-                        "centroid=" + Arrays.toString(block.getCentroid()));
+      var blockCount = "Block " + i + ": " + block.getVectorCount() + " vectors ,";
+      System.out.println(blockCount + "centroid=" + Arrays.toString(block.getCentroid()));
     }
 
     System.out.println();
@@ -101,28 +99,23 @@ public class VectorStoreExample {
     List<KeyValue> vectorData = new ArrayList<>();
 
     // Create some sample document embeddings
-    String[] documents = {
-        "machine learning artificial intelligence",
-        "natural language processing text analysis", 
-        "computer vision image recognition",
-        "deep learning neural networks",
-        "data science analytics"
-    };
+    String[] documents = {"machine learning artificial intelligence",
+        "natural language processing text analysis", "computer vision image recognition",
+        "deep learning neural networks", "data science analytics"};
 
     // Simulate document embeddings (in real use case, these would come from ML models)
-    float[][] embeddings = {
-        {0.8f, 0.2f, 0.1f, 0.9f},  // ML/AI focused
-        {0.1f, 0.9f, 0.2f, 0.7f},  // NLP focused
-        {0.2f, 0.1f, 0.9f, 0.8f},  // Computer vision focused
+    float[][] embeddings = {{0.8f, 0.2f, 0.1f, 0.9f}, // ML/AI focused
+        {0.1f, 0.9f, 0.2f, 0.7f}, // NLP focused
+        {0.2f, 0.1f, 0.9f, 0.8f}, // Computer vision focused
         {0.9f, 0.3f, 0.4f, 0.95f}, // Deep learning focused
-        {0.4f, 0.8f, 0.3f, 0.6f}   // Data science focused
+        {0.4f, 0.8f, 0.3f, 0.6f} // Data science focused
     };
 
     for (int i = 0; i < documents.length; i++) {
       Key key = new Key("doc" + i, "embedding", "v1");
       Value value = Value.newVector(embeddings[i]);
       vectorData.add(new KeyValue(key, value));
-      
+
       System.out.println("Created vector for '" + documents[i] + "':");
       System.out.println("  Key: " + key);
       System.out.println("  Vector: " + Arrays.toString(embeddings[i]));
@@ -142,8 +135,8 @@ public class VectorStoreExample {
 
     // Sample vectors
     float[] queryVector = {0.7f, 0.3f, 0.2f, 0.8f};
-    float[] doc1Vector = {0.8f, 0.2f, 0.1f, 0.9f};  // Should be similar
-    float[] doc2Vector = {0.1f, 0.9f, 0.8f, 0.2f};  // Should be less similar
+    float[] doc1Vector = {0.8f, 0.2f, 0.1f, 0.9f}; // Should be similar
+    float[] doc2Vector = {0.1f, 0.9f, 0.8f, 0.2f}; // Should be less similar
 
     System.out.println("Query vector: " + Arrays.toString(queryVector));
     System.out.println("Document 1 vector: " + Arrays.toString(doc1Vector));
@@ -156,10 +149,10 @@ public class VectorStoreExample {
     System.out.println("\nCosine similarities:");
     System.out.println("Query vs Doc1: " + cosineSim1);
     System.out.println("Query vs Doc2: " + cosineSim2);
-    System.out.println("Doc1 is " + (cosineSim1 > cosineSim2 ? "more" : "less") + 
-                      " similar to query than Doc2");
+    System.out.println(
+        "Doc1 is " + (cosineSim1 > cosineSim2 ? "more" : "less") + " similar to query than Doc2");
 
-    // Calculate dot product similarity  
+    // Calculate dot product similarity
     float dotProd1 = calculateDotProduct(queryVector, doc1Vector);
     float dotProd2 = calculateDotProduct(queryVector, doc2Vector);
 

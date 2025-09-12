@@ -28,31 +28,33 @@ import java.util.List;
 import org.apache.hadoop.io.Writable;
 
 /**
- * Advanced indexing structure stored in RFile footer for hierarchical vector search.
- * Supports multi-level centroids and cluster assignments for efficient block filtering.
+ * Advanced indexing structure stored in RFile footer for hierarchical vector search. Supports
+ * multi-level centroids and cluster assignments for efficient block filtering.
  */
 public class VectorIndexFooter implements Writable {
-  
+
   private int vectorDimension;
-  private float[][] globalCentroids;  // Top-level cluster centers
+  private float[][] globalCentroids; // Top-level cluster centers
   private int[][] clusterAssignments; // Block to cluster mappings
   private byte[] quantizationCodebook; // For product quantization
   private IndexingType indexingType;
-  
+
   public enum IndexingType {
-    FLAT((byte) 0),           // Simple centroid-based
-    IVF((byte) 1),            // Inverted File Index
-    HIERARCHICAL((byte) 2),   // Multi-level centroids
-    PQ((byte) 3);             // Product Quantization
-    
+    FLAT((byte) 0), // Simple centroid-based
+    IVF((byte) 1), // Inverted File Index
+    HIERARCHICAL((byte) 2), // Multi-level centroids
+    PQ((byte) 3); // Product Quantization
+
     private final byte typeId;
-    
+
     IndexingType(byte typeId) {
       this.typeId = typeId;
     }
-    
-    public byte getTypeId() { return typeId; }
-    
+
+    public byte getTypeId() {
+      return typeId;
+    }
+
     public static IndexingType fromTypeId(byte typeId) {
       for (IndexingType type : values()) {
         if (type.typeId == typeId) {
@@ -62,14 +64,14 @@ public class VectorIndexFooter implements Writable {
       throw new IllegalArgumentException("Unknown IndexingType id: " + typeId);
     }
   }
-  
+
   public VectorIndexFooter() {
     this.globalCentroids = new float[0][];
     this.clusterAssignments = new int[0][];
     this.quantizationCodebook = new byte[0];
     this.indexingType = IndexingType.FLAT;
   }
-  
+
   public VectorIndexFooter(int vectorDimension, IndexingType indexingType) {
     this.vectorDimension = vectorDimension;
     this.indexingType = indexingType;
@@ -77,36 +79,35 @@ public class VectorIndexFooter implements Writable {
     this.clusterAssignments = new int[0][];
     this.quantizationCodebook = new byte[0];
   }
-  
+
   /**
    * Builds a hierarchical index from vector block centroids using K-means clustering.
-   * 
+   *
    * @param blockCentroids centroids from all vector blocks
    * @param clustersPerLevel number of clusters per hierarchical level
-   * @return hierarchical cluster assignments
    */
   public void buildHierarchicalIndex(List<float[]> blockCentroids, int clustersPerLevel) {
     if (blockCentroids.isEmpty()) {
       return;
     }
-    
+
     this.indexingType = IndexingType.HIERARCHICAL;
-    
+
     // Build top-level clusters using K-means
     this.globalCentroids = performKMeansClustering(blockCentroids, clustersPerLevel);
-    
+
     // Assign each block to nearest top-level cluster
     this.clusterAssignments = new int[blockCentroids.size()][];
     for (int blockIdx = 0; blockIdx < blockCentroids.size(); blockIdx++) {
       float[] blockCentroid = blockCentroids.get(blockIdx);
       int nearestCluster = findNearestCluster(blockCentroid, globalCentroids);
-      this.clusterAssignments[blockIdx] = new int[]{nearestCluster};
+      this.clusterAssignments[blockIdx] = new int[] {nearestCluster};
     }
   }
-  
+
   /**
    * Builds an Inverted File Index (IVF) for approximate nearest neighbor search.
-   * 
+   *
    * @param blockCentroids centroids from all vector blocks
    * @param numClusters number of IVF clusters to create
    */
@@ -114,12 +115,12 @@ public class VectorIndexFooter implements Writable {
     if (blockCentroids.isEmpty()) {
       return;
     }
-    
+
     this.indexingType = IndexingType.IVF;
-    
+
     // Create IVF clusters
     this.globalCentroids = performKMeansClustering(blockCentroids, numClusters);
-    
+
     // Build inverted file structure - each block maps to multiple clusters
     this.clusterAssignments = new int[blockCentroids.size()][];
     for (int blockIdx = 0; blockIdx < blockCentroids.size(); blockIdx++) {
@@ -129,17 +130,17 @@ public class VectorIndexFooter implements Writable {
       this.clusterAssignments[blockIdx] = nearestClusters;
     }
   }
-  
+
   /**
    * Finds candidate blocks for a query vector using the index structure.
-   * 
+   *
    * @param queryVector the query vector
    * @param maxCandidateBlocks maximum number of candidate blocks to return
    * @return list of candidate block indices
    */
   public List<Integer> findCandidateBlocks(float[] queryVector, int maxCandidateBlocks) {
     List<Integer> candidates = new ArrayList<>();
-    
+
     switch (indexingType) {
       case HIERARCHICAL:
         candidates = findCandidatesHierarchical(queryVector, maxCandidateBlocks);
@@ -155,21 +156,21 @@ public class VectorIndexFooter implements Writable {
         }
         break;
     }
-    
+
     return candidates.subList(0, Math.min(candidates.size(), maxCandidateBlocks));
   }
-  
+
   private List<Integer> findCandidatesHierarchical(float[] queryVector, int maxCandidates) {
     List<Integer> candidates = new ArrayList<>();
-    
+
     if (globalCentroids.length == 0) {
       return candidates;
     }
-    
+
     // Find nearest top-level clusters
-    int[] nearestClusters = findTopKNearestClusters(queryVector, globalCentroids, 
-                                                   Math.min(3, globalCentroids.length));
-    
+    int[] nearestClusters =
+        findTopKNearestClusters(queryVector, globalCentroids, Math.min(3, globalCentroids.length));
+
     // Collect all blocks assigned to these clusters
     for (int blockIdx = 0; blockIdx < clusterAssignments.length; blockIdx++) {
       if (clusterAssignments[blockIdx].length > 0) {
@@ -182,21 +183,21 @@ public class VectorIndexFooter implements Writable {
         }
       }
     }
-    
+
     return candidates;
   }
-  
+
   private List<Integer> findCandidatesIVF(float[] queryVector, int maxCandidates) {
     List<Integer> candidates = new ArrayList<>();
-    
+
     if (globalCentroids.length == 0) {
       return candidates;
     }
-    
+
     // Find nearest IVF clusters
-    int[] nearestClusters = findTopKNearestClusters(queryVector, globalCentroids, 
-                                                   Math.min(5, globalCentroids.length));
-    
+    int[] nearestClusters =
+        findTopKNearestClusters(queryVector, globalCentroids, Math.min(5, globalCentroids.length));
+
     // Use inverted file to find candidate blocks
     for (int blockIdx = 0; blockIdx < clusterAssignments.length; blockIdx++) {
       for (int blockCluster : clusterAssignments[blockIdx]) {
@@ -208,38 +209,38 @@ public class VectorIndexFooter implements Writable {
         }
       }
     }
-    
+
     return candidates;
   }
-  
+
   private float[][] performKMeansClustering(List<float[]> points, int k) {
     if (points.isEmpty() || k <= 0) {
       return new float[0][];
     }
-    
+
     k = Math.min(k, points.size()); // Can't have more clusters than points
     int dimension = points.get(0).length;
-    
+
     // Initialize centroids randomly
     float[][] centroids = new float[k][dimension];
     for (int i = 0; i < k; i++) {
       // Use point i as initial centroid (simple initialization)
       System.arraycopy(points.get(i * points.size() / k), 0, centroids[i], 0, dimension);
     }
-    
+
     // K-means iterations (simplified - normally would do multiple iterations)
     int[] assignments = new int[points.size()];
-    
+
     // Assign points to nearest centroids
     for (int pointIdx = 0; pointIdx < points.size(); pointIdx++) {
       assignments[pointIdx] = findNearestCluster(points.get(pointIdx), centroids);
     }
-    
+
     // Update centroids
     for (int clusterIdx = 0; clusterIdx < k; clusterIdx++) {
       float[] newCentroid = new float[dimension];
       int count = 0;
-      
+
       for (int pointIdx = 0; pointIdx < points.size(); pointIdx++) {
         if (assignments[pointIdx] == clusterIdx) {
           float[] point = points.get(pointIdx);
@@ -249,7 +250,7 @@ public class VectorIndexFooter implements Writable {
           count++;
         }
       }
-      
+
       if (count > 0) {
         for (int d = 0; d < dimension; d++) {
           newCentroid[d] /= count;
@@ -257,14 +258,14 @@ public class VectorIndexFooter implements Writable {
         centroids[clusterIdx] = newCentroid;
       }
     }
-    
+
     return centroids;
   }
-  
+
   private int findNearestCluster(float[] point, float[][] centroids) {
     int nearest = 0;
     float minDistance = Float.MAX_VALUE;
-    
+
     for (int i = 0; i < centroids.length; i++) {
       float distance = euclideanDistance(point, centroids[i]);
       if (distance < minDistance) {
@@ -272,34 +273,34 @@ public class VectorIndexFooter implements Writable {
         nearest = i;
       }
     }
-    
+
     return nearest;
   }
-  
+
   private int[] findTopKNearestClusters(float[] point, float[][] centroids, int k) {
     k = Math.min(k, centroids.length);
     float[] distances = new float[centroids.length];
-    
+
     for (int i = 0; i < centroids.length; i++) {
       distances[i] = euclideanDistance(point, centroids[i]);
     }
-    
+
     // Find indices of k smallest distances
     Integer[] indices = new Integer[centroids.length];
     for (int i = 0; i < indices.length; i++) {
       indices[i] = i;
     }
-    
+
     Arrays.sort(indices, (a, b) -> Float.compare(distances[a], distances[b]));
-    
+
     int[] result = new int[k];
     for (int i = 0; i < k; i++) {
       result[i] = indices[i];
     }
-    
+
     return result;
   }
-  
+
   private float euclideanDistance(float[] a, float[] b) {
     float sum = 0.0f;
     for (int i = 0; i < a.length; i++) {
@@ -308,29 +309,45 @@ public class VectorIndexFooter implements Writable {
     }
     return (float) Math.sqrt(sum);
   }
-  
+
   // Getters and setters
-  public int getVectorDimension() { return vectorDimension; }
-  public float[][] getGlobalCentroids() { return globalCentroids; }
-  public int[][] getClusterAssignments() { return clusterAssignments; }
-  public byte[] getQuantizationCodebook() { return quantizationCodebook; }
-  public IndexingType getIndexingType() { return indexingType; }
-  
-  public void setGlobalCentroids(float[][] globalCentroids) { 
-    this.globalCentroids = globalCentroids; 
+  public int getVectorDimension() {
+    return vectorDimension;
   }
-  public void setClusterAssignments(int[][] clusterAssignments) { 
-    this.clusterAssignments = clusterAssignments; 
+
+  public float[][] getGlobalCentroids() {
+    return globalCentroids;
   }
-  public void setQuantizationCodebook(byte[] quantizationCodebook) { 
-    this.quantizationCodebook = quantizationCodebook; 
+
+  public int[][] getClusterAssignments() {
+    return clusterAssignments;
   }
-  
+
+  public byte[] getQuantizationCodebook() {
+    return quantizationCodebook;
+  }
+
+  public IndexingType getIndexingType() {
+    return indexingType;
+  }
+
+  public void setGlobalCentroids(float[][] globalCentroids) {
+    this.globalCentroids = globalCentroids;
+  }
+
+  public void setClusterAssignments(int[][] clusterAssignments) {
+    this.clusterAssignments = clusterAssignments;
+  }
+
+  public void setQuantizationCodebook(byte[] quantizationCodebook) {
+    this.quantizationCodebook = quantizationCodebook;
+  }
+
   @Override
   public void write(DataOutput out) throws IOException {
     out.writeInt(vectorDimension);
     out.writeByte(indexingType.getTypeId());
-    
+
     // Write global centroids
     out.writeInt(globalCentroids.length);
     for (float[] centroid : globalCentroids) {
@@ -339,7 +356,7 @@ public class VectorIndexFooter implements Writable {
         out.writeFloat(value);
       }
     }
-    
+
     // Write cluster assignments
     out.writeInt(clusterAssignments.length);
     for (int[] assignment : clusterAssignments) {
@@ -348,19 +365,19 @@ public class VectorIndexFooter implements Writable {
         out.writeInt(cluster);
       }
     }
-    
+
     // Write quantization codebook
     out.writeInt(quantizationCodebook.length);
     if (quantizationCodebook.length > 0) {
       out.write(quantizationCodebook);
     }
   }
-  
+
   @Override
   public void readFields(DataInput in) throws IOException {
     vectorDimension = in.readInt();
     indexingType = IndexingType.fromTypeId(in.readByte());
-    
+
     // Read global centroids
     int numCentroids = in.readInt();
     globalCentroids = new float[numCentroids][];
@@ -371,7 +388,7 @@ public class VectorIndexFooter implements Writable {
         globalCentroids[i][j] = in.readFloat();
       }
     }
-    
+
     // Read cluster assignments
     int numAssignments = in.readInt();
     clusterAssignments = new int[numAssignments][];
@@ -382,7 +399,7 @@ public class VectorIndexFooter implements Writable {
         clusterAssignments[i][j] = in.readInt();
       }
     }
-    
+
     // Read quantization codebook
     int codebookLength = in.readInt();
     quantizationCodebook = new byte[codebookLength];

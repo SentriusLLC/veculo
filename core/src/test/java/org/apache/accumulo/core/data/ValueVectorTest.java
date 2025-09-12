@@ -33,7 +33,7 @@ public class ValueVectorTest {
   public void testNewVector() {
     float[] vector = {1.0f, 2.0f, 3.0f, 4.5f};
     Value value = Value.newVector(vector);
-    
+
     assertEquals(ValueType.VECTOR_FLOAT32, value.getValueType());
     assertArrayEquals(vector, value.asVector(), 0.0001f);
   }
@@ -42,7 +42,7 @@ public class ValueVectorTest {
   public void testAsVectorWithWrongType() {
     Value value = new Value("hello".getBytes());
     value.setValueType(ValueType.BYTES);
-    
+
     assertThrows(IllegalStateException.class, () -> {
       value.asVector();
     });
@@ -50,9 +50,9 @@ public class ValueVectorTest {
 
   @Test
   public void testAsVectorWithInvalidLength() {
-    Value value = new Value(new byte[]{1, 2, 3}); // 3 bytes, not divisible by 4
+    Value value = new Value(new byte[] {1, 2, 3}); // 3 bytes, not divisible by 4
     value.setValueType(ValueType.VECTOR_FLOAT32);
-    
+
     assertThrows(IllegalArgumentException.class, () -> {
       value.asVector();
     });
@@ -62,7 +62,7 @@ public class ValueVectorTest {
   public void testEmptyVector() {
     float[] vector = {};
     Value value = Value.newVector(vector);
-    
+
     assertEquals(ValueType.VECTOR_FLOAT32, value.getValueType());
     assertArrayEquals(vector, value.asVector(), 0.0001f);
     assertEquals(0, value.getSize());
@@ -78,7 +78,7 @@ public class ValueVectorTest {
   public void testSetValueType() {
     Value value = new Value();
     assertEquals(ValueType.BYTES, value.getValueType());
-    
+
     value.setValueType(ValueType.VECTOR_FLOAT32);
     assertEquals(ValueType.VECTOR_FLOAT32, value.getValueType());
   }
