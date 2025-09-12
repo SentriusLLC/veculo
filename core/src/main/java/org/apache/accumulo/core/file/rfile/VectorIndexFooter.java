@@ -224,9 +224,8 @@ public class VectorIndexFooter implements Writable {
     // Validate that all points have the same dimension
     for (float[] point : points) {
       if (point.length != dimension) {
-        throw new IllegalArgumentException(
-            "All points must have the same dimension: expected " + dimension + ", got "
-                + point.length);
+        throw new IllegalArgumentException("All points must have the same dimension: expected "
+            + dimension + ", got " + point.length);
       }
     }
 
