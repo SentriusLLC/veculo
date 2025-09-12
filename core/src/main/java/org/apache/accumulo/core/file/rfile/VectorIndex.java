@@ -41,9 +41,15 @@ public class VectorIndex implements Writable {
     private int vectorCount;
     private long blockOffset;
     private int blockSize;
+    private byte[] visibility;  // Visibility markings for this block
+    private boolean compressed; // Whether vectors in this block are compressed
+    private byte compressionType; // Type of compression used (0=none, 1=quantized8, 2=quantized16)
     
     public VectorBlockMetadata() {
       // Default constructor for Writable
+      this.visibility = new byte[0];
+      this.compressed = false;
+      this.compressionType = 0;
     }
     
     public VectorBlockMetadata(float[] centroid, int vectorCount, long blockOffset, int blockSize) {
@@ -51,6 +57,20 @@ public class VectorIndex implements Writable {
       this.vectorCount = vectorCount;
       this.blockOffset = blockOffset;
       this.blockSize = blockSize;
+      this.visibility = new byte[0];
+      this.compressed = false;
+      this.compressionType = 0;
+    }
+    
+    public VectorBlockMetadata(float[] centroid, int vectorCount, long blockOffset, int blockSize, 
+                              byte[] visibility, boolean compressed, byte compressionType) {
+      this.centroid = centroid;
+      this.vectorCount = vectorCount;
+      this.blockOffset = blockOffset;
+      this.blockSize = blockSize;
+      this.visibility = visibility != null ? visibility : new byte[0];
+      this.compressed = compressed;
+      this.compressionType = compressionType;
     }
     
     public float[] getCentroid() {
@@ -69,6 +89,30 @@ public class VectorIndex implements Writable {
       return blockSize;
     }
     
+    public byte[] getVisibility() {
+      return visibility;
+    }
+    
+    public boolean isCompressed() {
+      return compressed;
+    }
+    
+    public byte getCompressionType() {
+      return compressionType;
+    }
+    
+    public void setVisibility(byte[] visibility) {
+      this.visibility = visibility != null ? visibility : new byte[0];
+    }
+    
+    public void setCompressed(boolean compressed) {
+      this.compressed = compressed;
+    }
+    
+    public void setCompressionType(byte compressionType) {
+      this.compressionType = compressionType;
+    }
+    
     @Override
     public void write(DataOutput out) throws IOException {
       out.writeInt(centroid.length);
@@ -78,6 +122,16 @@ public class VectorIndex implements Writable {
       out.writeInt(vectorCount);
       out.writeLong(blockOffset);
       out.writeInt(blockSize);
+      
+      // Write visibility data
+      out.writeInt(visibility.length);
+      if (visibility.length > 0) {
+        out.write(visibility);
+      }
+      
+      // Write compression metadata
+      out.writeBoolean(compressed);
+      out.writeByte(compressionType);
     }
     
     @Override
@@ -90,6 +144,17 @@ public class VectorIndex implements Writable {
       vectorCount = in.readInt();
       blockOffset = in.readLong();
       blockSize = in.readInt();
+      
+      // Read visibility data
+      int visibilityLength = in.readInt();
+      visibility = new byte[visibilityLength];
+      if (visibilityLength > 0) {
+        in.readFully(visibility);
+      }
+      
+      // Read compression metadata
+      compressed = in.readBoolean();
+      compressionType = in.readByte();
     }
   }
   
