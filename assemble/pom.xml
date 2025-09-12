@@ -201,11 +201,13 @@
       <artifactId>jakarta.xml.bind-api</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- TEMPORARILY COMMENTED FOR BUILD TESTING
     <dependency>
       <groupId>org.apache.accumulo</groupId>
       <artifactId>accumulo-access</artifactId>
       <optional>true</optional>
     </dependency>
+    -->
     <dependency>
       <groupId>org.apache.accumulo</groupId>
       <artifactId>accumulo-compactor</artifactId>
