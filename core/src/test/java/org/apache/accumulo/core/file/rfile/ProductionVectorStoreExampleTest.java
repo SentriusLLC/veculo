@@ -72,9 +72,9 @@ public class ProductionVectorStoreExampleTest {
     iteratorOptions.put(VectorIterator.TOP_K_OPTION, "5");
 
     System.out.println("User with category filter = internal can access:");
-    System.out.println("  ✓ Public vectors (always available)");
-    System.out.println("  ✓ Internal vectors (category matches)");
-    System.out.println("  ✗ Restricted vectors (not included in filter)");
+    System.out.println("  + Public vectors (always available)");
+    System.out.println("  + Internal vectors (category matches)");
+    System.out.println("  - Restricted vectors (not included in filter)");
 
     System.out.println();
   }

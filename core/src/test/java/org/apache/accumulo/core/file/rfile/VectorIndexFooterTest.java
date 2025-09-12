@@ -118,4 +118,21 @@ public class VectorIndexFooterTest {
 
     assertTrue(candidates.isEmpty());
   }
+
+  @Test
+  public void testDimensionValidation() {
+    VectorIndexFooter footer =
+        new VectorIndexFooter(2, VectorIndexFooter.IndexingType.HIERARCHICAL);
+
+    // Create centroids with mismatched dimensions
+    List<float[]> centroids = Arrays.asList(new float[] {1.0f, 0.0f}, // 2D
+        new float[] {0.0f, 1.0f, 0.0f}); // 3D - this should cause an exception
+
+    try {
+      footer.buildHierarchicalIndex(centroids, 2);
+      assertTrue(false, "Expected IllegalArgumentException for mismatched dimensions");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains("All points must have the same dimension"));
+    }
+  }
 }
