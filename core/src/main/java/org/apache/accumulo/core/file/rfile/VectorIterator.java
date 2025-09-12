@@ -50,6 +50,9 @@ public class VectorIterator implements SortedKeyValueIterator<Key,Value> {
   public static final String SIMILARITY_TYPE_OPTION = "similarityType";
   public static final String TOP_K_OPTION = "topK";
   public static final String THRESHOLD_OPTION = "threshold";
+  public static final String USE_COMPRESSION_OPTION = "useCompression";
+  public static final String MAX_CANDIDATE_BLOCKS_OPTION = "maxCandidateBlocks";
+  public static final String AUTHORIZATIONS_OPTION = "authorizations";
   
   public enum SimilarityType {
     COSINE, DOT_PRODUCT
@@ -76,12 +79,17 @@ public class VectorIterator implements SortedKeyValueIterator<Key,Value> {
   
   private SortedKeyValueIterator<Key,Value> source;
   private VectorIndex vectorIndex;
+  private VectorIndexFooter indexFooter;
+  private VectorBuffer vectorBuffer;
   private VisibilityEvaluator visibilityEvaluator;
+  private Authorizations authorizations;
   
   private float[] queryVector;
   private SimilarityType similarityType = SimilarityType.COSINE;
   private int topK = 10;
   private float threshold = 0.0f;
+  private boolean useCompression = false;
+  private int maxCandidateBlocks = 50; // Limit blocks to search for performance
   
   private List<SimilarityResult> results;
   private int currentResultIndex;
@@ -90,6 +98,9 @@ public class VectorIterator implements SortedKeyValueIterator<Key,Value> {
   public void init(SortedKeyValueIterator<Key,Value> source, Map<String,String> options,
       IteratorEnvironment env) throws IOException {
     this.source = source;
+    
+    // Initialize vector buffer for batching/staging
+    this.vectorBuffer = new VectorBuffer();
     
     // Parse options
     if (options.containsKey(QUERY_VECTOR_OPTION)) {
@@ -108,14 +119,29 @@ public class VectorIterator implements SortedKeyValueIterator<Key,Value> {
       threshold = Float.parseFloat(options.get(THRESHOLD_OPTION));
     }
     
-    // Initialize visibility evaluator if we have authorizations from the environment
-    if (env.getIteratorScope() != IteratorScope.scan) {
-      // For non-scan contexts, we may not have authorizations available
-      visibilityEvaluator = null;
+    if (options.containsKey(USE_COMPRESSION_OPTION)) {
+      useCompression = Boolean.parseBoolean(options.get(USE_COMPRESSION_OPTION));
+    }
+    
+    if (options.containsKey(MAX_CANDIDATE_BLOCKS_OPTION)) {
+      maxCandidateBlocks = Integer.parseInt(options.get(MAX_CANDIDATE_BLOCKS_OPTION));
+    }
+    
+    // Initialize visibility evaluator with authorizations
+    if (options.containsKey(AUTHORIZATIONS_OPTION)) {
+      String authString = options.get(AUTHORIZATIONS_OPTION);
+      authorizations = new Authorizations(authString.split(","));
+      visibilityEvaluator = new VisibilityEvaluator(authorizations);
     } else {
-      // Try to get authorizations from the environment
-      // Note: This would need to be adapted based on how authorizations are provided
-      visibilityEvaluator = null; // Placeholder - would be initialized with proper authorizations
+      // Initialize visibility evaluator if we have authorizations from the environment
+      if (env.getIteratorScope() != IteratorScope.scan) {
+        // For non-scan contexts, we may not have authorizations available
+        visibilityEvaluator = null;
+      } else {
+        // Try to get authorizations from the environment
+        // Note: This would need to be adapted based on how authorizations are provided
+        visibilityEvaluator = null; // Placeholder - would be initialized with proper authorizations
+      }
     }
     
     results = new ArrayList<>();
@@ -197,15 +223,81 @@ public class VectorIterator implements SortedKeyValueIterator<Key,Value> {
    * followed by fine-grained similarity computation.
    */
   private void performVectorSearch() throws IOException {
-    // First, use vector index for coarse filtering if available
-    List<VectorIndex.VectorBlockMetadata> candidateBlocks = getCandidateBlocks();
+    // Use advanced indexing if available for candidate block selection
+    List<Integer> candidateBlockIndices = getCandidateBlockIndices();
     
-    // If no vector index or no candidate blocks, scan all data
-    if (candidateBlocks.isEmpty()) {
+    if (candidateBlockIndices.isEmpty()) {
+      // Fall back to scanning all data if no index available
       scanAllData();
     } else {
-      scanCandidateBlocks(candidateBlocks);
+      // Use efficient batch processing with vector buffer
+      processCandidateBlocks(candidateBlockIndices);
     }
+  }
+  
+  private List<Integer> getCandidateBlockIndices() {
+    if (indexFooter != null && queryVector != null) {
+      // Use advanced indexing for candidate selection
+      return indexFooter.findCandidateBlocks(queryVector, maxCandidateBlocks);
+    } else if (vectorIndex != null && !vectorIndex.getBlocks().isEmpty()) {
+      // Fall back to basic centroid-based filtering
+      return getBasicCandidateBlocks();
+    }
+    
+    return new ArrayList<>(); // No indexing available
+  }
+  
+  private List<Integer> getBasicCandidateBlocks() {
+    List<Integer> candidates = new ArrayList<>();
+    List<VectorIndex.VectorBlockMetadata> blocks = vectorIndex.getBlocks();
+    
+    for (int i = 0; i < blocks.size(); i++) {
+      VectorIndex.VectorBlockMetadata block = blocks.get(i);
+      
+      // Check visibility permissions for block
+      if (!isBlockVisibilityAllowed(block)) {
+        continue;
+      }
+      
+      float centroidSimilarity = computeSimilarity(queryVector, block.getCentroid());
+      // More lenient threshold for coarse filtering
+      if (centroidSimilarity >= threshold * 0.5f) {
+        candidates.add(i);
+      }
+    }
+    
+    return candidates;
+  }
+  
+  private void processCandidateBlocks(List<Integer> candidateBlockIndices) throws IOException {
+    // Load candidate blocks into vector buffer for efficient processing
+    List<VectorIndex.VectorBlockMetadata> blocks = vectorIndex.getBlocks();
+    
+    for (Integer blockIdx : candidateBlockIndices) {
+      if (blockIdx < blocks.size()) {
+        VectorIndex.VectorBlockMetadata metadata = blocks.get(blockIdx);
+        
+        // Load block vectors (this would normally read from disk)
+        List<VectorBuffer.VectorBlock.VectorEntry> blockVectors = loadBlockVectors(metadata);
+        
+        // Stage in vector buffer
+        vectorBuffer.loadBlock(metadata.getBlockOffset(), metadata, blockVectors);
+      }
+    }
+    
+    // Perform parallel similarity computation using vector buffer
+    List<SimilarityResult> bufferResults = vectorBuffer.computeSimilarities(
+        queryVector, similarityType, topK, threshold);
+    
+    // Filter results based on visibility
+    for (SimilarityResult result : bufferResults) {
+      if (isVisibilityAllowed(result.getKey())) {
+        results.add(result);
+      }
+    }
+    
+    // Clear buffer to free memory
+    vectorBuffer.clear();
   }
   
   private List<VectorIndex.VectorBlockMetadata> getCandidateBlocks() {
@@ -259,6 +351,63 @@ public class VectorIterator implements SortedKeyValueIterator<Key,Value> {
     } catch (Exception e) {
       return false; // Deny access on evaluation errors
     }
+  }
+  
+  /**
+   * Checks if a vector block's visibility allows access.
+   */
+  private boolean isBlockVisibilityAllowed(VectorIndex.VectorBlockMetadata block) {
+    if (visibilityEvaluator == null || block.getVisibility().length == 0) {
+      return true; // No visibility restrictions
+    }
+    
+    ColumnVisibility visibility = new ColumnVisibility(block.getVisibility());
+    try {
+      return visibilityEvaluator.evaluate(visibility);
+    } catch (Exception e) {
+      return false; // Deny access on evaluation errors
+    }
+  }
+  
+  /**
+   * Loads vector entries from a block (simulated - would normally read from disk).
+   */
+  private List<VectorBuffer.VectorBlock.VectorEntry> loadBlockVectors(
+      VectorIndex.VectorBlockMetadata metadata) throws IOException {
+    
+    List<VectorBuffer.VectorBlock.VectorEntry> entries = new ArrayList<>();
+    
+    // In a real implementation, this would seek to the block offset and read vectors
+    // For now, simulate by scanning the current source data
+    long currentPos = 0;
+    source.seek(new Range(), Collections.emptyList(), false);
+    
+    while (source.hasTop() && currentPos < metadata.getBlockOffset() + metadata.getBlockSize()) {
+      Key key = source.getTopKey();
+      Value value = source.getTopValue();
+      
+      if (isVectorValue(value)) {
+        float[] vector;
+        if (metadata.isCompressed()) {
+          // Decompress vector if needed
+          vector = useCompression ? value.asCompressedVector() : value.asVector();
+        } else {
+          vector = value.asVector();
+        }
+        
+        byte[] visibility = key.getColumnVisibility().getBytes();
+        entries.add(new VectorBuffer.VectorBlock.VectorEntry(key, vector, visibility));
+        
+        if (entries.size() >= metadata.getVectorCount()) {
+          break; // Loaded expected number of vectors
+        }
+      }
+      
+      source.next();
+      currentPos++; // Simplified position tracking
+    }
+    
+    return entries;
   }
   
   private boolean isVectorValue(Value value) {
