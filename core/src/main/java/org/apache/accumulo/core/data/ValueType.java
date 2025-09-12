@@ -22,36 +22,36 @@ package org.apache.accumulo.core.data;
  * Enumeration of supported value types for specialized value handling in Accumulo.
  */
 public enum ValueType {
-  
+
   /**
    * Standard byte array value type - the default for all existing values.
    */
   BYTES((byte) 0),
-  
+
   /**
-   * 32-bit floating point vector value type for vector similarity operations.
-   * Values of this type contain a sequence of IEEE 754 single-precision floating point numbers.
+   * 32-bit floating point vector value type for vector similarity operations. Values of this type
+   * contain a sequence of IEEE 754 single-precision floating point numbers.
    */
   VECTOR_FLOAT32((byte) 1);
-  
+
   private final byte typeId;
-  
+
   ValueType(byte typeId) {
     this.typeId = typeId;
   }
-  
+
   /**
    * Gets the byte identifier for this value type.
-   * 
+   *
    * @return the byte identifier
    */
   public byte getTypeId() {
     return typeId;
   }
-  
+
   /**
    * Gets the ValueType for the given type identifier.
-   * 
+   *
    * @param typeId the type identifier
    * @return the corresponding ValueType
    * @throws IllegalArgumentException if the typeId is not recognized

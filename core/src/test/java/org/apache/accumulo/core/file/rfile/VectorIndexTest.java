@@ -19,10 +19,7 @@
 package org.apache.accumulo.core.file.rfile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.List;
 
 import org.apache.accumulo.core.file.rfile.VectorIndex.VectorBlockMetadata;
 import org.junit.jupiter.api.Test;
@@ -44,9 +41,9 @@ public class VectorIndexTest {
     VectorIndex index = new VectorIndex(3);
     float[] centroid = {1.0f, 2.0f, 3.0f};
     VectorBlockMetadata block = new VectorBlockMetadata(centroid, 10, 1000L, 256);
-    
+
     index.addBlock(block);
-    
+
     assertEquals(1, index.getBlocks().size());
     VectorBlockMetadata retrieved = index.getBlocks().get(0);
     assertEquals(10, retrieved.getVectorCount());
@@ -57,15 +54,13 @@ public class VectorIndexTest {
   @Test
   public void testMultipleBlocks() {
     VectorIndex index = new VectorIndex(2);
-    
-    VectorBlockMetadata block1 = new VectorBlockMetadata(
-        new float[]{1.0f, 2.0f}, 5, 0L, 128);
-    VectorBlockMetadata block2 = new VectorBlockMetadata(
-        new float[]{3.0f, 4.0f}, 8, 128L, 192);
-    
+
+    VectorBlockMetadata block1 = new VectorBlockMetadata(new float[] {1.0f, 2.0f}, 5, 0L, 128);
+    VectorBlockMetadata block2 = new VectorBlockMetadata(new float[] {3.0f, 4.0f}, 8, 128L, 192);
+
     index.addBlock(block1);
     index.addBlock(block2);
-    
+
     assertEquals(2, index.getBlocks().size());
     assertEquals(5, index.getBlocks().get(0).getVectorCount());
     assertEquals(8, index.getBlocks().get(1).getVectorCount());
@@ -75,7 +70,7 @@ public class VectorIndexTest {
   public void testVectorBlockMetadata() {
     float[] centroid = {0.5f, -1.2f, 2.8f};
     VectorBlockMetadata block = new VectorBlockMetadata(centroid, 15, 2048L, 512);
-    
+
     assertEquals(3, block.getCentroid().length);
     assertEquals(0.5f, block.getCentroid()[0], 0.001f);
     assertEquals(-1.2f, block.getCentroid()[1], 0.001f);
