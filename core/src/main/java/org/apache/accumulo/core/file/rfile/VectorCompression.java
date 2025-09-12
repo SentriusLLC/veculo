@@ -66,8 +66,8 @@ public class VectorCompression {
     byte[] quantized = new byte[vector.length];
     float scale = 255.0f / range;
     for (int i = 0; i < vector.length; i++) {
-      int quantizedValue = Math.round((vector[i] - min) * scale) - 128;
-      quantized[i] = (byte) Math.max(-128, Math.min(127, quantizedValue));
+      int quantizedValue = Math.round((vector[i] - min) * scale);
+      quantized[i] = (byte) Math.max(0, Math.min(255, quantizedValue));
     }
 
     return new CompressedVector(quantized, min, max, COMPRESSION_QUANTIZED_8BIT);
@@ -107,8 +107,8 @@ public class VectorCompression {
     ByteBuffer buffer = ByteBuffer.allocate(vector.length * 2);
     float scale = 65535.0f / range;
     for (float v : vector) {
-      int quantizedValue = Math.round((v - min) * scale) - 32768;
-      short shortValue = (short) Math.max(-32768, Math.min(32767, quantizedValue));
+      int quantizedValue = Math.round((v - min) * scale);
+      short shortValue = (short) Math.max(0, Math.min(65535, quantizedValue));
       buffer.putShort(shortValue);
     }
 
@@ -160,7 +160,7 @@ public class VectorCompression {
 
     float scale = range / 255.0f;
     for (int i = 0; i < data.length; i++) {
-      int unsignedByte = (data[i] & 0xFF) + 128;
+      int unsignedByte = data[i] & 0xFF;
       result[i] = min + (unsignedByte * scale);
     }
 
@@ -184,7 +184,7 @@ public class VectorCompression {
 
     float scale = range / 65535.0f;
     for (int i = 0; i < result.length; i++) {
-      int unsignedShort = (buffer.getShort() & 0xFFFF) + 32768;
+      int unsignedShort = buffer.getShort() & 0xFFFF;
       result[i] = min + (unsignedShort * scale);
     }
 
