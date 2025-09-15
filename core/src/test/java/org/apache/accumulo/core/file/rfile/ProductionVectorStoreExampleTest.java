@@ -28,11 +28,15 @@ import java.util.Random;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Comprehensive example demonstrating production-ready vector store features including: - Metadata
  * integration for per-vector categories - Compression for storage efficiency - Batching/staging for
  * performance - Advanced indexing for scalability - Vector chunking for large embeddings
  */
+@SuppressFBWarnings(value = "PREDICTABLE_RANDOM",
+    justification = "This class is an example/demo, not security-sensitive production code.")
 public class ProductionVectorStoreExampleTest {
 
   static Random rand = new Random(1234);
