@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
@@ -33,6 +34,8 @@ import org.apache.accumulo.core.data.Value;
  * performance - Advanced indexing for scalability - Vector chunking for large embeddings
  */
 public class ProductionVectorStoreExampleTest {
+
+  static Random rand = new Random(1234);
 
   public static void main(String[] args) {
     System.out.println("=== Production Vector Store Capabilities ===\n");
@@ -172,7 +175,7 @@ public class ProductionVectorStoreExampleTest {
 
     float[] largeEmbedding = new float[1024];
     for (int i = 0; i < largeEmbedding.length; i++) {
-      largeEmbedding[i] = (float) (Math.random() * 2.0 - 1.0);
+      largeEmbedding[i] = (float) (rand.nextFloat() * 2.0 - 1.0);
     }
 
     int chunkSize = 256;
@@ -191,7 +194,7 @@ public class ProductionVectorStoreExampleTest {
     List<VectorBuffer.VectorBlock.VectorEntry> entries = new ArrayList<>();
     for (int i = 0; i < count; i++) {
       Key key = new Key(prefix + "_" + i, "embedding", "vector", System.currentTimeMillis());
-      float[] vector = {(float) Math.random(), (float) Math.random(), (float) Math.random()};
+      float[] vector = {rand.nextFloat(), rand.nextFloat(), rand.nextFloat()};
       byte[] category = "public".getBytes();
       entries.add(new VectorBuffer.VectorBlock.VectorEntry(key, vector, category));
     }
