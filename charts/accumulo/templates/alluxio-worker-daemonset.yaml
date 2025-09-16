@@ -1,0 +1,178 @@
+{{- if .Values.alluxio.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "accumulo.fullname" . }}-alluxio-worker
+  labels:
+    {{- $component := "alluxio-worker" }}
+    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "accumulo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: alluxio-worker
+  template:
+    metadata:
+      labels:
+        {{- include "accumulo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: alluxio-worker
+      {{- with .Values.global.commonAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      hostNetwork: false
+      containers:
+      - name: alluxio-worker
+        image: {{ include "alluxio.image" . }}
+        imagePullPolicy: {{ .Values.alluxio.image.pullPolicy }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Wait for master to be ready
+          echo "Waiting for Alluxio master to be ready..."
+          until nc -z {{ include "accumulo.fullname" . }}-alluxio-master 19998; do
+            echo "Waiting for master..."
+            sleep 5
+          done
+          
+          # Create directories
+          mkdir -p /opt/ramdisk
+          mkdir -p /opt/alluxio/logs
+          
+          # Mount ramdisk for memory tier
+          mount -t tmpfs -o size={{ .Values.alluxio.properties.alluxio.worker.memory.size }} tmpfs /opt/ramdisk
+          
+          # Start worker
+          /opt/alluxio/bin/alluxio-start.sh worker
+          
+          # Keep container running and monitor process
+          while true; do
+            if ! pgrep -f "alluxio.worker.AlluxioWorker" > /dev/null; then
+              echo "Alluxio worker process died, restarting..."
+              /opt/alluxio/bin/alluxio-start.sh worker
+            fi
+            sleep 30
+          done
+        ports:
+        - name: rpc
+          containerPort: 29999
+          protocol: TCP
+        - name: data
+          containerPort: 29999
+          protocol: TCP
+        - name: web
+          containerPort: 30000
+          protocol: TCP
+        env:
+        - name: ALLUXIO_WORKER_HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: ALLUXIO_MASTER_HOSTNAME
+          value: {{ include "accumulo.fullname" . }}-alluxio-master
+        {{- if eq .Values.storage.provider "s3" }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "accumulo.fullname" . }}-secret
+              key: s3-access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "accumulo.fullname" . }}-secret
+              key: s3-secret-key
+        {{- else if eq .Values.storage.provider "minio" }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "accumulo.fullname" . }}-secret
+              key: minio-access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "accumulo.fullname" . }}-secret
+              key: minio-secret-key
+        {{- end }}
+        volumeMounts:
+        - name: alluxio-config
+          mountPath: /opt/alluxio/conf/alluxio-site.properties
+          subPath: alluxio-site.properties
+        - name: storage
+          mountPath: /opt/alluxio/underFSStorage
+        - name: ramdisk
+          mountPath: /opt/ramdisk
+        {{- if and (eq .Values.storage.provider "gcs") .Values.storage.gcs.keyFile }}
+        - name: gcs-secret
+          mountPath: /opt/alluxio/secrets
+          readOnly: true
+        {{- end }}
+        resources:
+          {{- toYaml .Values.alluxio.worker.resources | nindent 10 }}
+        securityContext:
+          privileged: true  # Required for mounting tmpfs
+        livenessProbe:
+          httpGet:
+            path: /
+            port: web
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: web
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: alluxio-config
+        configMap:
+          name: {{ include "accumulo.fullname" . }}-alluxio-config
+      - name: storage
+        {{- if .Values.alluxio.worker.storage.storageClass }}
+        persistentVolumeClaim:
+          claimName: {{ include "accumulo.fullname" . }}-alluxio-worker-storage
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      - name: ramdisk
+        emptyDir:
+          medium: Memory
+      {{- if and (eq .Values.storage.provider "gcs") .Values.storage.gcs.keyFile }}
+      - name: gcs-secret
+        secret:
+          secretName: {{ include "accumulo.fullname" . }}-gcs-secret
+      {{- end }}
+---
+{{- if .Values.alluxio.worker.storage.storageClass }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "accumulo.fullname" . }}-alluxio-worker-storage
+  labels:
+    {{- include "accumulo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alluxio-worker
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.alluxio.worker.storage.storageClass }}
+  storageClassName: {{ .Values.alluxio.worker.storage.storageClass }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.alluxio.worker.storage.size }}
+{{- end }}
+{{- end }}

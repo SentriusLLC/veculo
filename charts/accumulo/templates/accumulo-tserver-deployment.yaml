@@ -1,0 +1,102 @@
+{{- if .Values.accumulo.tserver.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "accumulo.fullname" . }}-tserver
+  labels:
+    {{- $component := "tserver" }}
+    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.accumulo.tserver.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "accumulo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: tserver
+  template:
+    metadata:
+      labels:
+        {{- include "accumulo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: tserver
+      {{- with .Values.global.commonAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.accumulo.tserver.podAntiAffinity.enabled }}
+      affinity:
+        {{- $component := "tserver" }}
+        {{- $podAntiAffinity := .Values.accumulo.tserver.podAntiAffinity }}
+        {{- include "accumulo.podAntiAffinity" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component "podAntiAffinity" $podAntiAffinity) | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      initContainers:
+      - name: wait-for-manager
+        image: busybox:1.35
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Accumulo manager to be ready..."
+          until nc -z {{ include "accumulo.fullname" . }}-manager 9999; do
+            echo "Waiting for manager..."
+            sleep 5
+          done
+          echo "Manager is ready"
+      containers:
+      - name: tserver
+        image: {{ include "accumulo.image" . }}
+        imagePullPolicy: {{ .Values.accumulo.image.pullPolicy }}
+        command:
+        - /opt/accumulo/bin/accumulo
+        - tserver
+        ports:
+        - name: client
+          containerPort: 9997
+          protocol: TCP
+        - name: replication
+          containerPort: 10002
+          protocol: TCP
+        env:
+        {{- include "accumulo.commonEnv" . | nindent 8 }}
+        - name: ACCUMULO_HOME
+          value: "/opt/accumulo"
+        - name: ACCUMULO_SERVICE_INSTANCE
+          value: "tserver"
+        volumeMounts:
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/accumulo.properties
+          subPath: accumulo.properties
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/accumulo-env.sh
+          subPath: accumulo-env.sh
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/log4j2-service.properties
+          subPath: log4j2-service.properties
+        - name: logs
+          mountPath: /opt/accumulo/logs
+        resources:
+          {{- toYaml .Values.accumulo.resources.tserver | nindent 10 }}
+        livenessProbe:
+          tcpSocket:
+            port: client
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: client
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: accumulo-config
+        configMap:
+          name: {{ include "accumulo.fullname" . }}-config
+          defaultMode: 0755
+      - name: logs
+        emptyDir: {}
+{{- end }}

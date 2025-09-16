@@ -1,0 +1,142 @@
+{{- if .Values.dev.smokeTest.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "accumulo.fullname" . }}-smoke-test
+  labels:
+    {{- include "accumulo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- with .Values.global.commonAnnotations }}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  restartPolicy: Never
+  serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+  initContainers:
+  - name: wait-for-services
+    image: busybox:1.35
+    command:
+    - /bin/sh
+    - -c
+    - |
+      echo "Waiting for all services to be ready..."
+      
+      echo "Checking ZooKeeper..."
+      until nc -z {{ include "accumulo.zookeeperHosts" . | replace ":2181" "" }} 2181; do
+        echo "Waiting for ZooKeeper..."
+        sleep 5
+      done
+      
+      echo "Checking Alluxio master..."
+      until nc -z {{ include "accumulo.fullname" . }}-alluxio-master 19998; do
+        echo "Waiting for Alluxio master..."
+        sleep 5
+      done
+      
+      echo "Checking Accumulo manager..."
+      until nc -z {{ include "accumulo.fullname" . }}-manager 9999; do
+        echo "Waiting for Accumulo manager..."
+        sleep 5
+      done
+      
+      echo "Checking TabletServer..."
+      until nc -z {{ include "accumulo.fullname" . }}-tserver 9997; do
+        echo "Waiting for TabletServer..."
+        sleep 5
+      done
+      
+      echo "All services are ready!"
+  containers:
+  - name: smoke-test
+    image: {{ .Values.dev.smokeTest.image.registry }}/{{ .Values.dev.smokeTest.image.repository }}:{{ .Values.dev.smokeTest.image.tag }}
+    command:
+    - /bin/bash
+    - -c
+    - |
+      set -e
+      
+      echo "=== Accumulo Smoke Test ==="
+      echo "Instance: {{ .Values.accumulo.instance.name }}"
+      echo "ZooKeeper: {{ include "accumulo.zookeeperHosts" . }}"
+      echo "Alluxio: {{ include "accumulo.fullname" . }}-alluxio-master:19998"
+      
+      # Wait a bit more for full initialization
+      echo "Waiting for system initialization..."
+      sleep 30
+      
+      echo "=== Testing Accumulo Shell Commands ==="
+      
+      # Create test table
+      echo "Creating test table..."
+      /opt/accumulo/bin/accumulo shell -u root -p {{ .Values.accumulo.instance.secret }} -e "createtable testtable"
+      
+      # Insert test data
+      echo "Inserting test data..."
+      /opt/accumulo/bin/accumulo shell -u root -p {{ .Values.accumulo.instance.secret }} -e "insert row1 cf1 cq1 value1" -t testtable
+      /opt/accumulo/bin/accumulo shell -u root -p {{ .Values.accumulo.instance.secret }} -e "insert row2 cf1 cq1 value2" -t testtable
+      /opt/accumulo/bin/accumulo shell -u root -p {{ .Values.accumulo.instance.secret }} -e "insert row3 cf1 cq1 value3" -t testtable
+      
+      # Scan test data
+      echo "Scanning test data..."
+      SCAN_OUTPUT=$(/opt/accumulo/bin/accumulo shell -u root -p {{ .Values.accumulo.instance.secret }} -e "scan" -t testtable)
+      echo "Scan output: $SCAN_OUTPUT"
+      
+      # Verify we have 3 rows
+      ROW_COUNT=$(echo "$SCAN_OUTPUT" | grep -c "value" || true)
+      echo "Found $ROW_COUNT rows"
+      
+      if [ "$ROW_COUNT" -eq 3 ]; then
+        echo "SUCCESS: All 3 test rows found"
+      else
+        echo "FAILED: Expected 3 rows, found $ROW_COUNT"
+        exit 1
+      fi
+      
+      # Test table operations
+      echo "Testing table operations..."
+      /opt/accumulo/bin/accumulo shell -u root -p {{ .Values.accumulo.instance.secret }} -e "flush -t testtable"
+      /opt/accumulo/bin/accumulo shell -u root -p {{ .Values.accumulo.instance.secret }} -e "compact -t testtable"
+      
+      echo "=== Testing Alluxio Integration ==="
+      
+      # Check if data is being stored in Alluxio
+      echo "Checking Alluxio master status..."
+      curl -f {{ include "accumulo.fullname" . }}-alluxio-master:19999/ > /dev/null
+      echo "SUCCESS: Alluxio master is accessible"
+      
+      echo "=== Testing Monitor Web Interface ==="
+      
+      # Check if Monitor is accessible
+      echo "Checking Monitor web interface..."
+      curl -f {{ include "accumulo.fullname" . }}-monitor:{{ .Values.accumulo.monitor.service.port }}/ > /dev/null
+      echo "SUCCESS: Monitor web interface is accessible"
+      
+      echo "=== Cleanup ==="
+      
+      # Clean up test table
+      echo "Dropping test table..."
+      /opt/accumulo/bin/accumulo shell -u root -p {{ .Values.accumulo.instance.secret }} -e "deletetable -f testtable"
+      
+      echo "=== ALL TESTS PASSED! ==="
+      echo "Accumulo cluster is working correctly with Alluxio storage"
+    env:
+    {{- include "accumulo.commonEnv" . | nindent 4 }}
+    - name: ACCUMULO_HOME
+      value: "/opt/accumulo"
+    volumeMounts:
+    - name: accumulo-config
+      mountPath: /opt/accumulo/conf/accumulo.properties
+      subPath: accumulo.properties
+    - name: accumulo-config
+      mountPath: /opt/accumulo/conf/accumulo-env.sh
+      subPath: accumulo-env.sh
+  volumes:
+  - name: accumulo-config
+    configMap:
+      name: {{ include "accumulo.fullname" . }}-config
+      defaultMode: 0755
+{{- end }}

@@ -1,0 +1,145 @@
+{{- if .Values.accumulo.manager.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "accumulo.fullname" . }}-manager
+  labels:
+    {{- $component := "manager" }}
+    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.accumulo.manager.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "accumulo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: manager
+  template:
+    metadata:
+      labels:
+        {{- include "accumulo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: manager
+      {{- with .Values.global.commonAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.accumulo.manager.podAntiAffinity.enabled }}
+      affinity:
+        {{- $component := "manager" }}
+        {{- $podAntiAffinity := .Values.accumulo.manager.podAntiAffinity }}
+        {{- include "accumulo.podAntiAffinity" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component "podAntiAffinity" $podAntiAffinity) | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      initContainers:
+      - name: wait-for-zookeeper
+        image: busybox:1.35
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for ZooKeeper to be ready..."
+          until nc -z {{ include "accumulo.zookeeperHosts" . | replace ":2181" "" }} 2181; do
+            echo "Waiting for ZooKeeper..."
+            sleep 5
+          done
+          echo "ZooKeeper is ready"
+      - name: wait-for-alluxio
+        image: busybox:1.35
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Alluxio master to be ready..."
+          until nc -z {{ include "accumulo.fullname" . }}-alluxio-master 19998; do
+            echo "Waiting for Alluxio master..."
+            sleep 5
+          done
+          echo "Alluxio master is ready"
+      - name: init-accumulo
+        image: {{ include "accumulo.image" . }}
+        imagePullPolicy: {{ .Values.accumulo.image.pullPolicy }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Check if instance is already initialized
+          if /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances | grep -q "{{ .Values.accumulo.instance.name }}"; then
+            echo "Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists"
+            exit 0
+          fi
+          
+          echo "Initializing Accumulo instance '{{ .Values.accumulo.instance.name }}'"
+          /opt/accumulo/bin/accumulo init \
+            --instance-name {{ .Values.accumulo.instance.name }} \
+            --password {{ .Values.accumulo.instance.secret }}
+        env:
+        {{- include "accumulo.commonEnv" . | nindent 8 }}
+        - name: ACCUMULO_HOME
+          value: "/opt/accumulo"
+        volumeMounts:
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/accumulo.properties
+          subPath: accumulo.properties
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/accumulo-env.sh
+          subPath: accumulo-env.sh
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/log4j2-service.properties
+          subPath: log4j2-service.properties
+      containers:
+      - name: manager
+        image: {{ include "accumulo.image" . }}
+        imagePullPolicy: {{ .Values.accumulo.image.pullPolicy }}
+        command:
+        - /opt/accumulo/bin/accumulo
+        - manager
+        ports:
+        - name: client
+          containerPort: 9999
+          protocol: TCP
+        - name: replication
+          containerPort: 10001
+          protocol: TCP
+        env:
+        {{- include "accumulo.commonEnv" . | nindent 8 }}
+        - name: ACCUMULO_HOME
+          value: "/opt/accumulo"
+        - name: ACCUMULO_SERVICE_INSTANCE
+          value: "manager"
+        volumeMounts:
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/accumulo.properties
+          subPath: accumulo.properties
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/accumulo-env.sh
+          subPath: accumulo-env.sh
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/log4j2-service.properties
+          subPath: log4j2-service.properties
+        - name: logs
+          mountPath: /opt/accumulo/logs
+        resources:
+          {{- toYaml .Values.accumulo.resources.manager | nindent 10 }}
+        livenessProbe:
+          tcpSocket:
+            port: client
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: client
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: accumulo-config
+        configMap:
+          name: {{ include "accumulo.fullname" . }}-config
+          defaultMode: 0755
+      - name: logs
+        emptyDir: {}
+{{- end }}

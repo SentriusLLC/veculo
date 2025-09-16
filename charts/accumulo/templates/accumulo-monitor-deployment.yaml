@@ -1,0 +1,95 @@
+{{- if .Values.accumulo.monitor.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "accumulo.fullname" . }}-monitor
+  labels:
+    {{- $component := "monitor" }}
+    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.accumulo.monitor.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "accumulo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: monitor
+  template:
+    metadata:
+      labels:
+        {{- include "accumulo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: monitor
+      {{- with .Values.global.commonAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      initContainers:
+      - name: wait-for-manager
+        image: busybox:1.35
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Accumulo manager to be ready..."
+          until nc -z {{ include "accumulo.fullname" . }}-manager 9999; do
+            echo "Waiting for manager..."
+            sleep 5
+          done
+          echo "Manager is ready"
+      containers:
+      - name: monitor
+        image: {{ include "accumulo.image" . }}
+        imagePullPolicy: {{ .Values.accumulo.image.pullPolicy }}
+        command:
+        - /opt/accumulo/bin/accumulo
+        - monitor
+        ports:
+        - name: http
+          containerPort: 9995
+          protocol: TCP
+        env:
+        {{- include "accumulo.commonEnv" . | nindent 8 }}
+        - name: ACCUMULO_HOME
+          value: "/opt/accumulo"
+        - name: ACCUMULO_SERVICE_INSTANCE
+          value: "monitor"
+        volumeMounts:
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/accumulo.properties
+          subPath: accumulo.properties
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/accumulo-env.sh
+          subPath: accumulo-env.sh
+        - name: accumulo-config
+          mountPath: /opt/accumulo/conf/log4j2-service.properties
+          subPath: log4j2-service.properties
+        - name: logs
+          mountPath: /opt/accumulo/logs
+        resources:
+          {{- toYaml .Values.accumulo.resources.monitor | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: accumulo-config
+        configMap:
+          name: {{ include "accumulo.fullname" . }}-config
+          defaultMode: 0755
+      - name: logs
+        emptyDir: {}
+{{- end }}
