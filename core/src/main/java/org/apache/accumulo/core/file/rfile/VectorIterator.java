@@ -504,4 +504,13 @@ public class VectorIterator implements SortedKeyValueIterator<Key,Value> {
     this.vectorIndex = vectorIndex;
   }
 
+  /**
+   * Sets the vector index footer for this iterator, enabling advanced indexing capabilities.
+   *
+   * @param indexFooter the vector index footer containing hierarchical indexing structures
+   */
+  public void setVectorIndexFooter(VectorIndexFooter indexFooter) {
+    this.indexFooter = indexFooter;
+  }
+
 }

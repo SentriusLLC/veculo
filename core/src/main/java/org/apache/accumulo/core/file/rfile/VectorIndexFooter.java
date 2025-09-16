@@ -221,11 +221,22 @@ public class VectorIndexFooter implements Writable {
     k = Math.min(k, points.size()); // Can't have more clusters than points
     int dimension = points.get(0).length;
 
+    // Validate that all points have the same dimension
+    for (float[] point : points) {
+      if (point.length != dimension) {
+        throw new IllegalArgumentException("All points must have the same dimension: expected "
+            + dimension + ", got " + point.length);
+      }
+    }
+
     // Initialize centroids randomly
     float[][] centroids = new float[k][dimension];
     for (int i = 0; i < k; i++) {
       // Use point i as initial centroid (simple initialization)
-      System.arraycopy(points.get(i * points.size() / k), 0, centroids[i], 0, dimension);
+      int pointIndex = (i * points.size()) / k;
+      // Ensure we don't go out of bounds
+      pointIndex = Math.min(pointIndex, points.size() - 1);
+      System.arraycopy(points.get(pointIndex), 0, centroids[i], 0, dimension);
     }
 
     // K-means iterations (simplified - normally would do multiple iterations)
@@ -302,6 +313,10 @@ public class VectorIndexFooter implements Writable {
   }
 
   private float euclideanDistance(float[] a, float[] b) {
+    if (a.length != b.length) {
+      throw new IllegalArgumentException(
+          "Vector dimensions must match: " + a.length + " != " + b.length);
+    }
     float sum = 0.0f;
     for (int i = 0; i < a.length; i++) {
       float diff = a[i] - b[i];

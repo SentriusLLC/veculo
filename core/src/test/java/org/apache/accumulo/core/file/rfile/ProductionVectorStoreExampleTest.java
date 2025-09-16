@@ -23,16 +23,23 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Comprehensive example demonstrating production-ready vector store features including: - Metadata
  * integration for per-vector categories - Compression for storage efficiency - Batching/staging for
  * performance - Advanced indexing for scalability - Vector chunking for large embeddings
  */
+@SuppressFBWarnings(value = "PREDICTABLE_RANDOM",
+    justification = "This class is an example/demo, not security-sensitive production code.")
 public class ProductionVectorStoreExampleTest {
+
+  static Random rand = new Random(1234);
 
   public static void main(String[] args) {
     System.out.println("=== Production Vector Store Capabilities ===\n");
@@ -72,9 +79,9 @@ public class ProductionVectorStoreExampleTest {
     iteratorOptions.put(VectorIterator.TOP_K_OPTION, "5");
 
     System.out.println("User with category filter = internal can access:");
-    System.out.println("  ✓ Public vectors (always available)");
-    System.out.println("  ✓ Internal vectors (category matches)");
-    System.out.println("  ✗ Restricted vectors (not included in filter)");
+    System.out.println("  + Public vectors (always available)");
+    System.out.println("  + Internal vectors (category matches)");
+    System.out.println("  - Restricted vectors (not included in filter)");
 
     System.out.println();
   }
@@ -172,7 +179,7 @@ public class ProductionVectorStoreExampleTest {
 
     float[] largeEmbedding = new float[1024];
     for (int i = 0; i < largeEmbedding.length; i++) {
-      largeEmbedding[i] = (float) (Math.random() * 2.0 - 1.0);
+      largeEmbedding[i] = (float) (rand.nextFloat() * 2.0 - 1.0);
     }
 
     int chunkSize = 256;
@@ -191,7 +198,7 @@ public class ProductionVectorStoreExampleTest {
     List<VectorBuffer.VectorBlock.VectorEntry> entries = new ArrayList<>();
     for (int i = 0; i < count; i++) {
       Key key = new Key(prefix + "_" + i, "embedding", "vector", System.currentTimeMillis());
-      float[] vector = {(float) Math.random(), (float) Math.random(), (float) Math.random()};
+      float[] vector = {rand.nextFloat(), rand.nextFloat(), rand.nextFloat()};
       byte[] category = "public".getBytes();
       entries.add(new VectorBuffer.VectorBlock.VectorEntry(key, vector, category));
     }
