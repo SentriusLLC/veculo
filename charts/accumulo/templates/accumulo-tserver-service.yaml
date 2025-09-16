@@ -1,0 +1,27 @@
+{{- if .Values.accumulo.tserver.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "accumulo.fullname" . }}-tserver
+  labels:
+    {{- include "accumulo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tserver
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: client
+    port: 9997
+    targetPort: client
+    protocol: TCP
+  - name: replication
+    port: 10002
+    targetPort: replication
+    protocol: TCP
+  selector:
+    {{- include "accumulo.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: tserver
+{{- end }}
