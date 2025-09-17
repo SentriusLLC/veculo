@@ -25,10 +25,12 @@ accumulo:
     
   # Accumulo image configuration
   image:
-    registry: docker.io
+    registry: ""
     repository: accumulo/accumulo
     tag: "4.0.0-SNAPSHOT"
     pullPolicy: IfNotPresent
+    # To use custom built images, set registry to your registry
+    # and run: scripts/build-docker.sh -r your-registry -t your-tag -p
     
   # Resource configurations for different components
   resources:
