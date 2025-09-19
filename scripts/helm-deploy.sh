@@ -39,7 +39,7 @@ DRY_RUN=false
 
 # Usage function
 usage() {
-    cat << EOF
+  cat <<EOF
 Usage: $0 ACTION [OPTIONS]
 
 Deploy Apache Accumulo using Helm
@@ -81,53 +81,53 @@ EOF
 
 # Parse command line arguments
 if [[ $# -eq 0 ]]; then
-    usage
-    exit 1
+  usage
+  exit 1
 fi
 
 ACTION="$1"
 shift
 
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        -r|--release)
-            RELEASE_NAME="$2"
-            shift 2
-            ;;
-        -f|--values)
-            VALUES_FILE="$2"
-            shift 2
-            ;;
-        -n|--namespace)
-            NAMESPACE="$2"
-            shift 2
-            ;;
-        -t|--timeout)
-            TIMEOUT="$2"
-            shift 2
-            ;;
-        --create-namespace)
-            CREATE_NAMESPACE=true
-            shift
-            ;;
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --no-wait)
-            WAIT=false
-            shift
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            usage
-            exit 1
-            ;;
-    esac
+  case $1 in
+    -r | --release)
+      RELEASE_NAME="$2"
+      shift 2
+      ;;
+    -f | --values)
+      VALUES_FILE="$2"
+      shift 2
+      ;;
+    -n | --namespace)
+      NAMESPACE="$2"
+      shift 2
+      ;;
+    -t | --timeout)
+      TIMEOUT="$2"
+      shift 2
+      ;;
+    --create-namespace)
+      CREATE_NAMESPACE=true
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    --no-wait)
+      WAIT=false
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      usage
+      exit 1
+      ;;
+  esac
 done
 
 # Colors for output
@@ -139,75 +139,75 @@ NC='\033[0m'
 
 # Logging functions
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+  echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+  echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+  echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+  echo -e "${RED}[ERROR]${NC} $1"
 }
 
 # Validate environment
 validate_environment() {
-    log_info "Validating environment..."
-    
-    # Check Helm
-    if ! command -v helm &> /dev/null; then
-        log_error "Helm is required but not installed"
-        exit 1
-    fi
-    
-    # Check kubectl
-    if ! command -v kubectl &> /dev/null; then
-        log_error "kubectl is required but not installed"  
-        exit 1
-    fi
-    
-    # Check cluster connectivity
-    if ! kubectl cluster-info &> /dev/null; then
-        log_error "Cannot connect to Kubernetes cluster"
-        exit 1
-    fi
-    
-    # Check chart exists
-    if [ ! -f "$CHART_DIR/Chart.yaml" ]; then
-        log_error "Helm chart not found at $CHART_DIR"
-        exit 1
-    fi
-    
-    log_success "Environment validation passed"
+  log_info "Validating environment..."
+
+  # Check Helm
+  if ! command -v helm &>/dev/null; then
+    log_error "Helm is required but not installed"
+    exit 1
+  fi
+
+  # Check kubectl
+  if ! command -v kubectl &>/dev/null; then
+    log_error "kubectl is required but not installed"
+    exit 1
+  fi
+
+  # Check cluster connectivity
+  if ! kubectl cluster-info &>/dev/null; then
+    log_error "Cannot connect to Kubernetes cluster"
+    exit 1
+  fi
+
+  # Check chart exists
+  if [ ! -f "$CHART_DIR/Chart.yaml" ]; then
+    log_error "Helm chart not found at $CHART_DIR"
+    exit 1
+  fi
+
+  log_success "Environment validation passed"
 }
 
 # Setup dependencies
 setup_dependencies() {
-    log_info "Setting up Helm chart dependencies..."
-    
-    # Create embedded dependencies instead of external ones
-    # This avoids the network connectivity issues
-    local deps_dir="$CHART_DIR/charts"
-    mkdir -p "$deps_dir"
-    
-    # Create simple ZooKeeper subchart
-    if [ ! -f "$deps_dir/zookeeper/Chart.yaml" ]; then
-        log_info "Creating embedded ZooKeeper chart..."
-        mkdir -p "$deps_dir/zookeeper/templates"
-        
-        cat > "$deps_dir/zookeeper/Chart.yaml" << 'EOF'
+  log_info "Setting up Helm chart dependencies..."
+
+  # Create embedded dependencies instead of external ones
+  # This avoids the network connectivity issues
+  local deps_dir="$CHART_DIR/charts"
+  mkdir -p "$deps_dir"
+
+  # Create simple ZooKeeper subchart
+  if [ ! -f "$deps_dir/zookeeper/Chart.yaml" ]; then
+    log_info "Creating embedded ZooKeeper chart..."
+    mkdir -p "$deps_dir/zookeeper/templates"
+
+    cat >"$deps_dir/zookeeper/Chart.yaml" <<'EOF'
 apiVersion: v2
 name: zookeeper
 description: ZooKeeper for Accumulo
 version: 1.0.0
 appVersion: "3.8.4"
 EOF
-        
-        cat > "$deps_dir/zookeeper/values.yaml" << 'EOF'
+
+    cat >"$deps_dir/zookeeper/values.yaml" <<'EOF'
 enabled: true
 replicaCount: 1
 image:
@@ -226,8 +226,8 @@ persistence:
   enabled: false
   size: 1Gi
 EOF
-        
-        cat > "$deps_dir/zookeeper/templates/deployment.yaml" << 'EOF'
+
+    cat >"$deps_dir/zookeeper/templates/deployment.yaml" <<'EOF'
 {{- if .Values.enabled }}
 apiVersion: apps/v1
 kind: Deployment
@@ -277,8 +277,8 @@ spec:
         {{- end }}
 {{- end }}
 EOF
-        
-        cat > "$deps_dir/zookeeper/templates/service.yaml" << 'EOF'
+
+    cat >"$deps_dir/zookeeper/templates/service.yaml" <<'EOF'
 {{- if .Values.enabled }}
 apiVersion: v1
 kind: Service
@@ -299,22 +299,22 @@ spec:
     app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 EOF
-    fi
-    
-    # Create simple MinIO subchart
-    if [ ! -f "$deps_dir/minio/Chart.yaml" ]; then
-        log_info "Creating embedded MinIO chart..."
-        mkdir -p "$deps_dir/minio/templates"
-        
-        cat > "$deps_dir/minio/Chart.yaml" << 'EOF'
+  fi
+
+  # Create simple MinIO subchart
+  if [ ! -f "$deps_dir/minio/Chart.yaml" ]; then
+    log_info "Creating embedded MinIO chart..."
+    mkdir -p "$deps_dir/minio/templates"
+
+    cat >"$deps_dir/minio/Chart.yaml" <<'EOF'
 apiVersion: v2
 name: minio
 description: MinIO for Accumulo development
 version: 1.0.0
 appVersion: "2024.1.1"
 EOF
-        
-        cat > "$deps_dir/minio/values.yaml" << 'EOF'
+
+    cat >"$deps_dir/minio/values.yaml" <<'EOF'
 enabled: true
 defaultBuckets: "accumulo-data"
 auth:
@@ -333,8 +333,8 @@ persistence:
   enabled: false
   size: 10Gi
 EOF
-        
-        cat > "$deps_dir/minio/templates/deployment.yaml" << 'EOF'
+
+    cat >"$deps_dir/minio/templates/deployment.yaml" <<'EOF'
 {{- if .Values.enabled }}
 apiVersion: apps/v1
 kind: Deployment
@@ -390,8 +390,8 @@ spec:
         {{- end }}
 {{- end }}
 EOF
-        
-        cat > "$deps_dir/minio/templates/service.yaml" << 'EOF'
+
+    cat >"$deps_dir/minio/templates/service.yaml" <<'EOF'
 {{- if .Values.enabled }}
 apiVersion: v1
 kind: Service
@@ -416,114 +416,114 @@ spec:
     app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 EOF
-    fi
-    
-    log_success "Dependencies setup complete"
+  fi
+
+  log_success "Dependencies setup complete"
 }
 
 # Execute Helm action
 execute_action() {
-    local cmd_args=()
-    
-    case "$ACTION" in
-        install)
-            if [ -z "$RELEASE_NAME" ]; then
-                log_error "Release name is required for install action"
-                exit 1
-            fi
-            
-            cmd_args=("install" "$RELEASE_NAME" "$CHART_DIR")
-            ;;
-        upgrade)
-            if [ -z "$RELEASE_NAME" ]; then
-                log_error "Release name is required for upgrade action"
-                exit 1
-            fi
-            
-            cmd_args=("upgrade" "$RELEASE_NAME" "$CHART_DIR")
-            ;;
-        uninstall)
-            if [ -z "$RELEASE_NAME" ]; then
-                log_error "Release name is required for uninstall action"
-                exit 1
-            fi
-            
-            cmd_args=("uninstall" "$RELEASE_NAME")
-            ;;
-        test)
-            if [ -z "$RELEASE_NAME" ]; then
-                log_error "Release name is required for test action"
-                exit 1
-            fi
-            
-            cmd_args=("test" "$RELEASE_NAME")
-            ;;
-        status)  
-            if [ -z "$RELEASE_NAME" ]; then
-                log_error "Release name is required for status action"
-                exit 1
-            fi
-            
-            cmd_args=("status" "$RELEASE_NAME")
-            ;;
-        *)
-            log_error "Unknown action: $ACTION"
-            exit 1
-            ;;
-    esac
-    
-    # Add common options
-    if [ "$ACTION" = "install" ] || [ "$ACTION" = "upgrade" ]; then
-        if [ -n "$VALUES_FILE" ]; then
-            cmd_args+=("-f" "$VALUES_FILE")
-        fi
-        
-        cmd_args+=("--timeout" "$TIMEOUT")
-        
-        if [ "$WAIT" = true ]; then
-            cmd_args+=("--wait")
-        fi
-        
-        if [ "$CREATE_NAMESPACE" = true ]; then
-            cmd_args+=("--create-namespace")
-        fi
-    fi
-    
-    # Add namespace
-    cmd_args+=("--namespace" "$NAMESPACE")
-    
-    # Add dry-run if requested
-    if [ "$DRY_RUN" = true ]; then
-        cmd_args+=("--dry-run")
-    fi
-    
-    # Execute command
-    log_info "Executing: helm ${cmd_args[*]}"
-    
-    if helm "${cmd_args[@]}"; then
-        log_success "$ACTION completed successfully"
-    else
-        log_error "$ACTION failed"
+  local cmd_args=()
+
+  case "$ACTION" in
+    install)
+      if [ -z "$RELEASE_NAME" ]; then
+        log_error "Release name is required for install action"
         exit 1
+      fi
+
+      cmd_args=("install" "$RELEASE_NAME" "$CHART_DIR")
+      ;;
+    upgrade)
+      if [ -z "$RELEASE_NAME" ]; then
+        log_error "Release name is required for upgrade action"
+        exit 1
+      fi
+
+      cmd_args=("upgrade" "$RELEASE_NAME" "$CHART_DIR")
+      ;;
+    uninstall)
+      if [ -z "$RELEASE_NAME" ]; then
+        log_error "Release name is required for uninstall action"
+        exit 1
+      fi
+
+      cmd_args=("uninstall" "$RELEASE_NAME")
+      ;;
+    test)
+      if [ -z "$RELEASE_NAME" ]; then
+        log_error "Release name is required for test action"
+        exit 1
+      fi
+
+      cmd_args=("test" "$RELEASE_NAME")
+      ;;
+    status)
+      if [ -z "$RELEASE_NAME" ]; then
+        log_error "Release name is required for status action"
+        exit 1
+      fi
+
+      cmd_args=("status" "$RELEASE_NAME")
+      ;;
+    *)
+      log_error "Unknown action: $ACTION"
+      exit 1
+      ;;
+  esac
+
+  # Add common options
+  if [ "$ACTION" = "install" ] || [ "$ACTION" = "upgrade" ]; then
+    if [ -n "$VALUES_FILE" ]; then
+      cmd_args+=("-f" "$VALUES_FILE")
     fi
+
+    cmd_args+=("--timeout" "$TIMEOUT")
+
+    if [ "$WAIT" = true ]; then
+      cmd_args+=("--wait")
+    fi
+
+    if [ "$CREATE_NAMESPACE" = true ]; then
+      cmd_args+=("--create-namespace")
+    fi
+  fi
+
+  # Add namespace
+  cmd_args+=("--namespace" "$NAMESPACE")
+
+  # Add dry-run if requested
+  if [ "$DRY_RUN" = true ]; then
+    cmd_args+=("--dry-run")
+  fi
+
+  # Execute command
+  log_info "Executing: helm ${cmd_args[*]}"
+
+  if helm "${cmd_args[@]}"; then
+    log_success "$ACTION completed successfully"
+  else
+    log_error "$ACTION failed"
+    exit 1
+  fi
 }
 
 # Main execution
 main() {
-    log_info "Starting Helm deployment for Accumulo"
-    log_info "Action: $ACTION"
-    log_info "Release: ${RELEASE_NAME:-N/A}"
-    log_info "Namespace: $NAMESPACE"
-    
-    validate_environment
-    
-    if [ "$ACTION" = "install" ] || [ "$ACTION" = "upgrade" ]; then
-        setup_dependencies
-    fi
-    
-    execute_action
-    
-    log_success "Operation completed successfully!"
+  log_info "Starting Helm deployment for Accumulo"
+  log_info "Action: $ACTION"
+  log_info "Release: ${RELEASE_NAME:-N/A}"
+  log_info "Namespace: $NAMESPACE"
+
+  validate_environment
+
+  if [ "$ACTION" = "install" ] || [ "$ACTION" = "upgrade" ]; then
+    setup_dependencies
+  fi
+
+  execute_action
+
+  log_success "Operation completed successfully!"
 }
 
 # Execute main function
