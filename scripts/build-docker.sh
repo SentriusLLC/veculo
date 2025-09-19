@@ -35,7 +35,7 @@ PLATFORM=""
 
 # Usage function
 usage() {
-    cat << EOF
+  cat <<EOF
 Usage: $0 [OPTIONS]
 
 Build Apache Accumulo Docker images
@@ -65,37 +65,37 @@ EOF
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        -r|--registry)
-            REGISTRY="$2"
-            shift 2
-            ;;
-        -t|--tag)
-            TAG="$2" 
-            shift 2
-            ;;
-        -p|--push)
-            PUSH=true
-            shift
-            ;;
-        --platform)
-            PLATFORM="$2"
-            shift 2
-            ;;
-        --build-arg)
-            BUILD_ARGS="$BUILD_ARGS --build-arg $2"
-            shift 2
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            usage
-            exit 1
-            ;;
-    esac
+  case $1 in
+    -r | --registry)
+      REGISTRY="$2"
+      shift 2
+      ;;
+    -t | --tag)
+      TAG="$2"
+      shift 2
+      ;;
+    -p | --push)
+      PUSH=true
+      shift
+      ;;
+    --platform)
+      PLATFORM="$2"
+      shift 2
+      ;;
+    --build-arg)
+      BUILD_ARGS="$BUILD_ARGS --build-arg $2"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      usage
+      exit 1
+      ;;
+  esac
 done
 
 # Colors for output
@@ -107,131 +107,130 @@ NC='\033[0m' # No Color
 
 # Logging functions
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+  echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+  echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+  echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+  echo -e "${RED}[ERROR]${NC} $1"
 }
 
 # Build Accumulo distribution if needed
 build_accumulo_dist() {
-    log_info "Checking if Accumulo distribution exists..."
-    
-    if [ ! -d "$PROJECT_DIR/assemble/target" ]; then
-        log_info "Building Accumulo distribution..."
-        cd "$PROJECT_DIR"
-        
-        # Check if Maven is available
-        if ! command -v mvn &> /dev/null; then
-            log_error "Maven is required to build Accumulo distribution"
-            exit 1
-        fi
-        
-        # Build the distribution
-        mvn clean package -DskipTests -pl assemble -am
-        
-        if [ $? -ne 0 ]; then
-            log_error "Failed to build Accumulo distribution"
-            exit 1
-        fi
+  log_info "Checking if Accumulo distribution exists..."
+
+  if [ ! -d "$PROJECT_DIR/assemble/target" ]; then
+    log_info "Building Accumulo distribution..."
+    cd "$PROJECT_DIR"
+
+    # Check if Maven is available
+    if ! command -v mvn &>/dev/null; then
+      log_error "Maven is required to build Accumulo distribution"
+      exit 1
     fi
-    
-    # Extract distribution for Docker build
-    local dist_dir="$PROJECT_DIR/docker/accumulo/dist"
-    mkdir -p "$dist_dir"
-    
-    local tarball=$(find "$PROJECT_DIR/assemble/target" -name "accumulo-*-bin.tar.gz" | head -1)
-    if [ -z "$tarball" ]; then
-        log_error "No Accumulo distribution found in assemble/target"
-        exit 1
+
+    # Build the distribution
+    if ! mvn clean package -DskipTests -pl assemble -am; then
+      log_error "Failed to build Accumulo distribution"
+      exit 1
     fi
-    
-    log_info "Extracting distribution: $(basename "$tarball")"
-    tar -xzf "$tarball" -C "$dist_dir" --strip-components=1
-    
-    log_success "Accumulo distribution prepared"
+  fi
+
+  # Extract distribution for Docker build
+  local dist_dir="$PROJECT_DIR/docker/accumulo/dist"
+  mkdir -p "$dist_dir"
+
+  local tarball
+  tarball=$(find "$PROJECT_DIR/assemble/target" -name "accumulo-*-bin.tar.gz" | head -1)
+  if [ -z "$tarball" ]; then
+    log_error "No Accumulo distribution found in assemble/target"
+    exit 1
+  fi
+
+  log_info "Extracting distribution: $(basename "$tarball")"
+  tar -xzf "$tarball" -C "$dist_dir" --strip-components=1
+
+  log_success "Accumulo distribution prepared"
 }
 
 # Build Docker image
 build_docker_image() {
-    local image_name="$REGISTRY/accumulo:$TAG"
-    local dockerfile="$PROJECT_DIR/docker/accumulo/Dockerfile"
-    local context="$PROJECT_DIR/docker/accumulo"
-    
-    log_info "Building Docker image: $image_name"
-    
-    # Prepare build command
-    local build_cmd="docker build"
-    
-    if [ -n "$PLATFORM" ]; then
-        build_cmd="$build_cmd --platform $PLATFORM"
-    fi
-    
-    build_cmd="$build_cmd $BUILD_ARGS -t $image_name -f $dockerfile $context"
-    
-    log_info "Build command: $build_cmd"
-    
-    # Execute build
-    if eval "$build_cmd"; then
-        log_success "Successfully built $image_name"
+  local image_name="$REGISTRY/accumulo:$TAG"
+  local dockerfile="$PROJECT_DIR/docker/accumulo/Dockerfile"
+  local context="$PROJECT_DIR/docker/accumulo"
+
+  log_info "Building Docker image: $image_name"
+
+  # Prepare build command
+  local build_cmd="docker build"
+
+  if [ -n "$PLATFORM" ]; then
+    build_cmd="$build_cmd --platform $PLATFORM"
+  fi
+
+  build_cmd="$build_cmd $BUILD_ARGS -t $image_name -f $dockerfile $context"
+
+  log_info "Build command: $build_cmd"
+
+  # Execute build
+  if eval "$build_cmd"; then
+    log_success "Successfully built $image_name"
+  else
+    log_error "Failed to build $image_name"
+    exit 1
+  fi
+
+  # Push if requested
+  if [ "$PUSH" = true ]; then
+    log_info "Pushing image: $image_name"
+    if docker push "$image_name"; then
+      log_success "Successfully pushed $image_name"
     else
-        log_error "Failed to build $image_name"
-        exit 1
+      log_error "Failed to push $image_name"
+      exit 1
     fi
-    
-    # Push if requested
-    if [ "$PUSH" = true ]; then
-        log_info "Pushing image: $image_name"
-        if docker push "$image_name"; then
-            log_success "Successfully pushed $image_name"
-        else
-            log_error "Failed to push $image_name"
-            exit 1
-        fi
-    fi
+  fi
 }
 
 # Validate environment
 validate_environment() {
-    log_info "Validating build environment..."
-    
-    # Check Docker
-    if ! command -v docker &> /dev/null; then
-        log_error "Docker is required but not installed"
-        exit 1
-    fi
-    
-    # Check Docker daemon
-    if ! docker info &> /dev/null; then
-        log_error "Docker daemon is not running"
-        exit 1
-    fi
-    
-    log_success "Environment validation passed"
+  log_info "Validating build environment..."
+
+  # Check Docker
+  if ! command -v docker &>/dev/null; then
+    log_error "Docker is required but not installed"
+    exit 1
+  fi
+
+  # Check Docker daemon
+  if ! docker info &>/dev/null; then
+    log_error "Docker daemon is not running"
+    exit 1
+  fi
+
+  log_success "Environment validation passed"
 }
 
 # Main execution
 main() {
-    log_info "Starting Accumulo Docker build process"
-    
-    validate_environment
-    build_accumulo_dist
-    build_docker_image
-    
-    log_success "Build process completed successfully!"
-    log_info "Image: $REGISTRY/accumulo:$TAG"
-    
-    # Show image info
-    docker images "$REGISTRY/accumulo:$TAG"
+  log_info "Starting Accumulo Docker build process"
+
+  validate_environment
+  build_accumulo_dist
+  build_docker_image
+
+  log_success "Build process completed successfully!"
+  log_info "Image: $REGISTRY/accumulo:$TAG"
+
+  # Show image info
+  docker images "$REGISTRY/accumulo:$TAG"
 }
 
 # Execute main function
