@@ -37,3 +37,10 @@
 
 # MacOS ignores
 .DS_Store
+
+# Docker build artifacts
+docker/accumulo/dist/
+
+# Helm chart build artifacts  
+charts/accumulo/charts/
+values-generated.yaml
