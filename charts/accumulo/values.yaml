@@ -1,0 +1,280 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+# Default values for Apache Accumulo with Alluxio
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  # Image registry, can be overridden
+  imageRegistry: ""
+  # Common labels to apply to all resources
+  commonLabels: {}
+  # Common annotations to apply to all resources  
+  commonAnnotations: {}
+  # Storage class for persistent volumes
+  storageClass: ""
+
+# Accumulo configuration
+accumulo:
+  # Accumulo instance configuration
+  instance:
+    # Instance name
+    name: "accumulo"
+    # Instance secret (change before deployment!)
+    secret: "DEFAULT_CHANGE_ME"
+    # Instance volumes - will use Alluxio
+    volumes: "alluxio://alluxio-master:19998/accumulo"
+    
+  # Accumulo image configuration
+  image:
+    registry: ""
+    repository: accumulo/accumulo
+    tag: "4.0.0-SNAPSHOT"
+    pullPolicy: IfNotPresent
+    # To use custom built images, set registry to your registry
+    # and run: scripts/build-docker.sh -r your-registry -t your-tag -p
+    
+  # Resource configurations for different components
+  resources:
+    manager:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi" 
+        cpu: "1000m"
+    tserver:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    monitor:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    gc:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    compactor:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  # Component deployment configuration
+  manager:
+    enabled: true
+    replicaCount: 1
+    # Pod anti-affinity for high availability
+    podAntiAffinity:
+      enabled: true
+      topologyKey: kubernetes.io/hostname
+      
+  tserver:
+    enabled: true
+    replicaCount: 3
+    podAntiAffinity:
+      enabled: true
+      topologyKey: kubernetes.io/hostname
+      
+  monitor:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 9995
+      
+  gc:
+    enabled: true
+    replicaCount: 1
+    
+  compactor:
+    enabled: true
+    replicaCount: 2
+    podAntiAffinity:
+      enabled: true
+      topologyKey: kubernetes.io/hostname
+
+# Alluxio configuration
+alluxio:
+  enabled: true
+  
+  # Alluxio image
+  image:
+    registry: docker.io
+    repository: alluxio/alluxio
+    tag: "2.9.4"
+    pullPolicy: IfNotPresent
+    
+  # Master configuration
+  master:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    # Journal storage for master metadata
+    journal:
+      storageClass: ""
+      size: "10Gi"
+      
+  # Worker configuration  
+  worker:
+    enabled: true
+    replicaCount: 3
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "500m"  
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+    # Local cache storage
+    storage:
+      storageClass: ""
+      size: "50Gi"
+    
+  # Alluxio properties configuration
+  properties:
+    # Under storage configuration - will be set based on storage provider
+    alluxio.master.mount.table.root.ufs: ""
+    # Cache settings
+    alluxio.user.file.write.location.policy.class: "alluxio.client.file.policy.LocalFirstPolicy"
+    alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes: "512MB"
+    # Memory allocation
+    alluxio.worker.memory.size: "1GB"
+    alluxio.master.journal.type: "UFS"
+    
+  # Per-path write modes for different Accumulo data
+  pathWriteModes:
+    "/accumulo/wal": "THROUGH"          # WAL needs immediate durability
+    "/accumulo/tables": "CACHE_THROUGH" # Tables benefit from caching
+    "/accumulo/tmp": "ASYNC_THROUGH"    # Temp files can be async
+
+# Storage provider configuration
+storage:
+  # Storage provider: s3, gcs, azure, or minio (for local dev)
+  provider: "minio"
+  
+  # S3 configuration
+  s3:
+    endpoint: ""
+    bucket: "accumulo-data"
+    region: "us-west-2"
+    accessKey: ""
+    secretKey: ""
+    
+  # GCS configuration  
+  gcs:
+    projectId: ""
+    bucket: "accumulo-data"
+    keyFile: ""
+    
+  # Azure configuration
+  azure:
+    account: ""
+    container: "accumulo-data"
+    key: ""
+    
+  # MinIO configuration (for local development)
+  minio:
+    endpoint: "http://minio:9000"
+    bucket: "accumulo-data"
+    accessKey: "minioadmin"
+    secretKey: "minioadmin"
+
+# ZooKeeper configuration
+zookeeper:
+  # Enable embedded ZooKeeper (set to false to use external)
+  enabled: true
+  replicaCount: 3
+  
+  # External ZooKeeper configuration (when enabled: false)
+  external:
+    hosts: "localhost:2181"
+
+# Built-in MinIO for local development
+minio:
+  # Enable MinIO for local development
+  enabled: true
+  defaultBuckets: "accumulo-data"
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+  persistence:
+    enabled: true
+    size: 10Gi
+
+# Security and authentication
+auth:
+  # Cloud provider authentication method
+  # Options: serviceAccount, workloadIdentity, managedIdentity, accessKeys
+  method: "accessKeys"
+  
+  # Service account configuration (for IRSA, Workload Identity, etc.)
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+
+# Monitoring and observability  
+monitoring:
+  # Enable Prometheus metrics
+  prometheus:
+    enabled: false
+    
+  # Enable tracing
+  tracing:
+    enabled: false
+    jaegerEndpoint: ""
+
+# Networking
+networking:
+  # Service mesh integration
+  istio:
+    enabled: false
+    
+# Development and testing
+dev:
+  # Enable development mode (uses MinIO, reduces resource requirements)
+  enabled: false
+  
+  # Smoke test configuration
+  smokeTest:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: accumulo/accumulo
+      tag: "4.0.0-SNAPSHOT"

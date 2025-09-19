@@ -1,0 +1,195 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+# Production values for Apache Accumulo on AWS with S3 storage
+# This configuration is optimized for production workloads on AWS EKS
+
+# Accumulo configuration for production
+accumulo:
+  instance:
+    name: "accumulo-prod"
+    secret: "CHANGE_THIS_SECRET_IN_PRODUCTION"
+    volumes: "alluxio://accumulo-prod-alluxio-master:19998/accumulo"
+  
+  # Production resource allocations
+  resources:
+    manager:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "2Gi" 
+        cpu: "2000m"
+    tserver:
+      requests:
+        memory: "4Gi"
+        cpu: "2000m"
+      limits:
+        memory: "8Gi"
+        cpu: "4000m"
+    monitor:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    gc:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    compactor:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+
+  # High availability configuration
+  manager:
+    replicaCount: 2
+    podAntiAffinity:
+      enabled: true
+      topologyKey: kubernetes.io/hostname
+      
+  tserver:
+    replicaCount: 6
+    podAntiAffinity:
+      enabled: true
+      topologyKey: kubernetes.io/hostname
+      
+  compactor:
+    replicaCount: 4
+    podAntiAffinity:
+      enabled: true
+      topologyKey: kubernetes.io/hostname
+
+  # Expose Monitor via LoadBalancer for external access
+  monitor:
+    service:
+      type: LoadBalancer
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+        service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+
+# Alluxio configuration for production
+alluxio:
+  # High availability Alluxio masters
+  master:
+    replicaCount: 3
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+    # Persistent journal storage
+    journal:
+      storageClass: "gp3"
+      size: "100Gi"
+      
+  # Alluxio workers with local SSD caching
+  worker:
+    replicaCount: 6
+    resources:
+      requests:
+        memory: "8Gi"
+        cpu: "2000m"  
+      limits:
+        memory: "16Gi"
+        cpu: "4000m"
+    # Local NVMe SSD for caching
+    storage:
+      storageClass: "local-nvme"
+      size: "500Gi"
+    
+  # Production Alluxio configuration
+  properties:
+    alluxio.worker.memory.size: "4GB"
+    # Enhanced performance settings
+    alluxio.user.file.write.location.policy.class: "alluxio.client.file.policy.LocalFirstAvoidEvictionPolicy"
+    alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes: "2GB"
+    
+  # Optimized write modes for Accumulo workloads
+  pathWriteModes:
+    "/accumulo/wal": "THROUGH"          # WAL needs immediate durability
+    "/accumulo/tables": "CACHE_THROUGH" # Tables benefit from caching
+    "/accumulo/tmp": "ASYNC_THROUGH"    # Temp files can be async
+    "/accumulo/recovery": "THROUGH"     # Recovery logs need durability
+
+# AWS S3 storage configuration
+storage:
+  provider: "s3"
+  s3:
+    endpoint: "https://s3.amazonaws.com"
+    bucket: "your-company-accumulo-prod"
+    region: "us-west-2"
+    # Using IRSA - credentials will be provided by service account
+    accessKey: ""
+    secretKey: ""
+
+# External ZooKeeper (recommended for production)
+zookeeper:
+  enabled: false
+  external:
+    hosts: "zk-cluster.your-domain.com:2181"
+
+# Disable built-in MinIO for production
+minio:
+  enabled: false
+
+# Production authentication with IRSA
+auth:
+  method: "serviceAccount"
+  serviceAccount:
+    create: true
+    name: "accumulo-prod"
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/AccumuloProdRole"
+
+# Global settings
+global:
+  storageClass: "gp3"
+  commonLabels:
+    environment: "production"
+    team: "data-engineering"
+  commonAnnotations:
+    deployed-by: "helm"
+    contact: "data-team@company.com"
+
+# Enable monitoring for production
+monitoring:
+  prometheus:
+    enabled: true
+
+# Network configuration
+networking:
+  istio:
+    enabled: true
+
+# Disable development features
+dev:
+  enabled: false
+  smokeTest:
+    enabled: false

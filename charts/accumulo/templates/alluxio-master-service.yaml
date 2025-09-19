@@ -17,30 +17,30 @@
 # under the License.
 #
 
-# Maven ignores
-/target/
-
-# IDE ignores
-/.settings/
-/.project
-/.classpath
-/.pydevproject
-/.idea
-/*.iml
-/*.ipr
-/*.iws
-/nbproject/
-/nbactions.xml
-/nb-configuration.xml
-/.vscode/
-/.factorypath
-
-# MacOS ignores
-.DS_Store
-
-# Docker build artifacts
-docker/accumulo/dist/
-
-# Helm chart build artifacts  
-charts/accumulo/charts/
-values-generated.yaml
+{{- if .Values.alluxio.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "accumulo.fullname" . }}-alluxio-master
+  labels:
+    {{- include "accumulo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alluxio-master
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: rpc
+    port: 19998
+    targetPort: rpc
+    protocol: TCP
+  - name: web
+    port: 19999
+    targetPort: web
+    protocol: TCP
+  selector:
+    {{- include "accumulo.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: alluxio-master
+{{- end }}

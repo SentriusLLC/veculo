@@ -1,0 +1,180 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+{{- if .Values.alluxio.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "accumulo.fullname" . }}-alluxio-master
+  labels:
+    {{- $component := "alluxio-master" }}
+    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.alluxio.master.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "accumulo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: alluxio-master
+  template:
+    metadata:
+      labels:
+        {{- include "accumulo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: alluxio-master
+      {{- with .Values.global.commonAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      containers:
+      - name: alluxio-master
+        image: {{ include "alluxio.image" . }}
+        imagePullPolicy: {{ .Values.alluxio.image.pullPolicy }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Create journal directory
+          mkdir -p /opt/alluxio/journal
+          
+          # Format journal if it doesn't exist
+          if [ ! -f /opt/alluxio/journal/.formatted ]; then
+            /opt/alluxio/bin/alluxio formatJournal
+            touch /opt/alluxio/journal/.formatted
+          fi
+          
+          # Start master
+          /opt/alluxio/bin/alluxio-start.sh master
+          
+          # Keep container running and monitor process
+          while true; do
+            if ! pgrep -f "alluxio.master.AlluxioMaster" > /dev/null; then
+              echo "Alluxio master process died, restarting..."
+              /opt/alluxio/bin/alluxio-start.sh master
+            fi
+            sleep 30
+          done
+        ports:
+        - name: rpc
+          containerPort: 19998
+          protocol: TCP
+        - name: web
+          containerPort: 19999
+          protocol: TCP
+        env:
+        - name: ALLUXIO_MASTER_HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        {{- if eq .Values.storage.provider "s3" }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "accumulo.fullname" . }}-secret
+              key: s3-access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "accumulo.fullname" . }}-secret
+              key: s3-secret-key
+        {{- else if eq .Values.storage.provider "minio" }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "accumulo.fullname" . }}-secret
+              key: minio-access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "accumulo.fullname" . }}-secret
+              key: minio-secret-key
+        {{- end }}
+        volumeMounts:
+        - name: alluxio-config
+          mountPath: /opt/alluxio/conf/alluxio-site.properties
+          subPath: alluxio-site.properties
+        - name: journal
+          mountPath: /opt/alluxio/journal
+        {{- if and (eq .Values.storage.provider "gcs") .Values.storage.gcs.keyFile }}
+        - name: gcs-secret
+          mountPath: /opt/alluxio/secrets
+          readOnly: true
+        {{- end }}
+        resources:
+          {{- toYaml .Values.alluxio.master.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: web
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: web
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: alluxio-config
+        configMap:
+          name: {{ include "accumulo.fullname" . }}-alluxio-config
+      - name: journal
+        {{- if .Values.alluxio.master.journal.storageClass }}
+        persistentVolumeClaim:
+          claimName: {{ include "accumulo.fullname" . }}-alluxio-master-journal
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- if and (eq .Values.storage.provider "gcs") .Values.storage.gcs.keyFile }}
+      - name: gcs-secret
+        secret:
+          secretName: {{ include "accumulo.fullname" . }}-gcs-secret
+      {{- end }}
+---
+{{- if .Values.alluxio.master.journal.storageClass }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "accumulo.fullname" . }}-alluxio-master-journal
+  labels:
+    {{- include "accumulo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alluxio-master
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.alluxio.master.journal.storageClass }}
+  storageClassName: {{ .Values.alluxio.master.journal.storageClass }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.alluxio.master.journal.size }}
+{{- end }}
+{{- end }}

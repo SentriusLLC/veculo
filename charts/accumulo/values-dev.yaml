@@ -1,0 +1,153 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+# Development mode values for Apache Accumulo with Alluxio
+# This configuration uses MinIO for local development and testing
+
+# Enable development mode
+dev:
+  enabled: true
+
+# Accumulo configuration - reduced resources for development
+accumulo:
+  instance:
+    name: "accumulo-dev"
+    secret: "dev-secret-change-me"
+    volumes: "alluxio://accumulo-dev-alluxio-master:19998/accumulo"
+  
+  # Reduced resource requirements for local development
+  resources:
+    manager:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi" 
+        cpu: "500m"
+    tserver:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    monitor:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "250m"
+    gc:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "250m"
+    compactor:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "250m"
+
+  # Reduced replicas for development
+  tserver:
+    replicaCount: 2
+  compactor:
+    replicaCount: 1
+
+# Alluxio configuration for development
+alluxio:
+  # Reduced resource requirements
+  master:
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    # Use emptyDir for journal in dev mode
+    journal:
+      storageClass: ""
+      size: "1Gi"
+      
+  worker:
+    replicaCount: 2
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "250m"  
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    # Use emptyDir for worker storage in dev mode
+    storage:
+      storageClass: ""
+      size: "5Gi"
+    
+  properties:
+    alluxio.worker.memory.size: "512MB"
+
+# Use MinIO for development storage
+storage:
+  provider: "minio"
+  minio:
+    endpoint: "http://accumulo-dev-minio:9000"
+    bucket: "accumulo-data"
+    accessKey: "minioadmin"
+    secretKey: "minioadmin"
+
+# Enable built-in MinIO
+minio:
+  enabled: true
+  defaultBuckets: "accumulo-data"
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+  persistence:
+    enabled: false  # Use emptyDir for development
+    size: 5Gi
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+
+# Enable built-in ZooKeeper with reduced resources
+zookeeper:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  persistence:
+    enabled: false  # Use emptyDir for development
+    size: 1Gi
+
+# Enable smoke tests
+dev:
+  smokeTest:
+    enabled: true
