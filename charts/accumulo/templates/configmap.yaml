@@ -20,7 +20,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "accumulo.fullname" . }}-config
+  name: {{include "accumulo.fullname" .}}-config
   labels:
     {{- include "accumulo.labels" . | nindent 4 }}
   {{- with .Values.global.commonAnnotations }}
@@ -30,82 +30,82 @@ metadata:
 data:
   accumulo.properties: |
     # Apache Accumulo Configuration for Kubernetes
-    
+
     ## Instance configuration
     instance.volumes={{ .Values.accumulo.instance.volumes }}
     instance.zookeeper.host={{ include "accumulo.zookeeperHosts" . }}
     instance.secret={{ .Values.accumulo.instance.secret }}
-    
+
     ## Enable native maps for better performance
     tserver.memory.maps.native.enabled=true
-    
+
     ## Manager configuration
     manager.recovery.delay=10s
     manager.lease.recovery.waiting.period=5s
-    
+
     ## Tablet server configuration
     tserver.port.search=true
     tserver.hold.time.max=5m
     tserver.memory.maps.max=1G
-    
-    ## Monitor configuration  
+
+    ## Monitor configuration
     monitor.port.client=9995
     monitor.ssl.port=9995
-    
+
     ## GC configuration
     gc.cycle.start=30s
     gc.cycle.delay=5m
-    
+
     ## Compactor configuration
     compactor.max.open.files=100
-    
+
     ## Performance tuning for Kubernetes
     general.rpc.timeout=120s
     tserver.scan.timeout.enable=true
     tserver.scan.timeout.max=5m
-    
+
     ## Alluxio-specific configuration
     general.vfs.context.class.name=org.apache.accumulo.core.spi.fs.VolumeChooserEnvironment
     general.vfs.cache.dir=/tmp/accumulo-vfs-cache
-    
+
   accumulo-env.sh: |
     #!/usr/bin/env bash
-    
+
     ## Accumulo environment for Kubernetes deployment
-    
+
     ## Required environment variables
     export ACCUMULO_LOG_DIR="${ACCUMULO_LOG_DIR:-/opt/accumulo/logs}"
     export HADOOP_HOME="${HADOOP_HOME:-/opt/hadoop}"
     export HADOOP_CONF_DIR="${HADOOP_CONF_DIR:-/opt/hadoop/etc/hadoop}"
     export ZOOKEEPER_HOME="${ZOOKEEPER_HOME:-/opt/zookeeper}"
-    
+
     ## Build classpath
     if [[ -n $CLASSPATH ]]; then
       CLASSPATH="${CLASSPATH}:${ACCUMULO_CONF_DIR}"
     else
       CLASSPATH="${ACCUMULO_CONF_DIR}"
     fi
-    
+
     # Add Accumulo libraries
     CLASSPATH="${CLASSPATH}:${ACCUMULO_HOME}/lib/*"
-    
+
     # Add Hadoop libraries
     CLASSPATH="${CLASSPATH}:${HADOOP_CONF_DIR}:${HADOOP_HOME}/share/hadoop/client/*"
-    
-    # Add ZooKeeper libraries  
+
+    # Add ZooKeeper libraries
     ZK_JARS=$(find "${ZOOKEEPER_HOME}/lib/" -maxdepth 1 -name '*.jar' -not -name '*slf4j*' -not -name '*log4j*' | paste -sd: -)
     CLASSPATH="${CLASSPATH}:${ZOOKEEPER_HOME}/*:${ZK_JARS}"
-    
+
     export CLASSPATH
-    
+
     ## JVM options for all processes
     JAVA_OPTS=(
       '-XX:OnOutOfMemoryError=kill -9 %p'
-      '-XX:-OmitStackTraceInFastThrow' 
+      '-XX:-OmitStackTraceInFastThrow'
       '-Djava.net.preferIPv4Stack=true'
       "-Daccumulo.native.lib.path=${ACCUMULO_HOME}/lib/native"
     )
-    
+
     ## Component-specific JVM options
     case "${ACCUMULO_SERVICE_INSTANCE}" in
       manager)
@@ -127,7 +127,7 @@ data:
         JAVA_OPTS=('-Xmx256m' '-Xms64m' "${JAVA_OPTS[@]}")
         ;;
     esac
-    
+
     ## Logging configuration
     JAVA_OPTS=(
       "-Daccumulo.log.dir=${ACCUMULO_LOG_DIR}"
@@ -137,62 +137,62 @@ data:
       "-Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
       "${JAVA_OPTS[@]}"
     )
-    
-    ## Service-specific log configuration  
+
+    ## Service-specific log configuration
     case "${ACCUMULO_SERVICE_INSTANCE}" in
       monitor | gc | manager | tserver | compactor)
         JAVA_OPTS=('-Dlog4j.configurationFile=log4j2-service.properties' "${JAVA_OPTS[@]}")
         ;;
     esac
-    
+
     export JAVA_OPTS
     export MALLOC_ARENA_MAX=1
-    
+
   log4j2-service.properties: |
     # Log4j2 configuration for Accumulo services in Kubernetes
-    
+
     status = ERROR
     name = AccumuloServiceConfig
-    
+
     # Console appender for container logs
     appender.console.type = Console
     appender.console.name = STDOUT
     appender.console.layout.type = PatternLayout
     appender.console.layout.pattern = %d{ISO8601} [%c{2}] %-5p: %m%n
-    
+
     # File appender for service logs
-    appender.file.type = File  
+    appender.file.type = File
     appender.file.name = FILE
     appender.file.fileName = ${sys:accumulo.log.dir}/accumulo-${sys:accumulo.application}.log
     appender.file.layout.type = PatternLayout
     appender.file.layout.pattern = %d{ISO8601} [%c{2}] %-5p: %m%n
-    
+
     # Root logger
     rootLogger.level = INFO
     rootLogger.appenderRef.console.ref = STDOUT
     rootLogger.appenderRef.file.ref = FILE
-    
+
     # Accumulo-specific loggers
     logger.accumulo.name = org.apache.accumulo
     logger.accumulo.level = INFO
     logger.accumulo.additivity = false
     logger.accumulo.appenderRef.console.ref = STDOUT
     logger.accumulo.appenderRef.file.ref = FILE
-    
+
     # Hadoop/Alluxio loggers (reduce verbosity)
     logger.hadoop.name = org.apache.hadoop
     logger.hadoop.level = WARN
-    
+
     logger.alluxio.name = alluxio
     logger.alluxio.level = INFO
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "accumulo.fullname" . }}-alluxio-config
+  name: {{include "accumulo.fullname" .}}-alluxio-config
   labels:
     {{- include "accumulo.labels" . | nindent 4 }}
-    app.kubernetes.io/component: alluxio
+  app.kubernetes.io/component: alluxio
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -200,21 +200,21 @@ metadata:
 data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage
-    
+
     ## Master configuration
-    alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
+    alluxio.master.hostname={{include "accumulo.fullname" .}}-alluxio-master
     alluxio.master.port=19998
     alluxio.master.web.port=19999
     alluxio.master.journal.type=UFS
     alluxio.master.journal.folder=/opt/alluxio/journal
-    
+
     ## Worker configuration
     alluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}
     alluxio.worker.port=29999
     alluxio.worker.web.port=30000
     alluxio.worker.data.port=29999
     alluxio.worker.rpc.port=29999
-    
+
     ## Memory and storage configuration
     alluxio.worker.memory.size={{ .Values.alluxio.properties.alluxio.worker.memory.size }}
     alluxio.worker.tieredstore.levels=1
@@ -223,10 +223,10 @@ data:
     alluxio.worker.tieredstore.level0.dirs.quota={{ .Values.alluxio.properties.alluxio.worker.memory.size }}
     alluxio.worker.tieredstore.level0.watermark.high.ratio=0.9
     alluxio.worker.tieredstore.level0.watermark.low.ratio=0.7
-    
+
     ## Under storage system configuration
     {{- include "accumulo.storageConfig" . }}
-    
+
     {{- if eq .Values.storage.provider "s3" }}
     # S3 configuration
     alluxio.underfs.s3.endpoint={{ .Values.storage.s3.endpoint }}
@@ -234,7 +234,7 @@ data:
     s3a.access.key={{ .Values.storage.s3.accessKey }}
     s3a.secret.key={{ .Values.storage.s3.secretKey }}
     {{- else if eq .Values.storage.provider "minio" }}
-    # MinIO configuration  
+    # MinIO configuration
     alluxio.underfs.s3.endpoint={{ .Values.storage.minio.endpoint }}
     alluxio.underfs.s3.disable.dns.buckets=true
     alluxio.underfs.s3.inherit.acl=false
@@ -248,7 +248,7 @@ data:
     # Azure configuration
     fs.azure.account.key.{{ .Values.storage.azure.account }}.dfs.core.windows.net={{ .Values.storage.azure.key }}
     {{- end }}
-    
+
     ## Performance and cache settings
     alluxio.user.file.write.location.policy.class={{ .Values.alluxio.properties.alluxio.user.file.write.location.policy.class }}
     alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes={{ .Values.alluxio.properties.alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes }}
@@ -257,12 +257,12 @@ data:
     {{- range $path, $mode := .Values.alluxio.pathWriteModes }}
     alluxio.user.file.write.type.{{ $path }}={{ $mode }}
     {{- end }}
-    
+
     ## Network and RPC settings
     alluxio.network.host.resolution.timeout=5s
     alluxio.user.rpc.retry.max.duration=10s
     alluxio.user.rpc.retry.base.sleep=1s
-    
+
     ## Security configuration
     alluxio.security.authentication.type=NOSASL
     alluxio.security.authorization.permission.enabled=false

@@ -15,16 +15,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+#
 
 {{- if .Values.alluxio.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "accumulo.fullname" . }}-alluxio-master
+  name: {{include "accumulo.fullname" .}}-alluxio-master
   labels:
     {{- $component := "alluxio-master" }}
-    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -34,18 +34,18 @@ spec:
   selector:
     matchLabels:
       {{- include "accumulo.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: alluxio-master
+    app.kubernetes.io/component: alluxio-master
   template:
     metadata:
       labels:
         {{- include "accumulo.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: alluxio-master
+      app.kubernetes.io/component: alluxio-master
       {{- with .Values.global.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      serviceAccountName: {{include "accumulo.serviceAccountName" .}}
       containers:
       - name: alluxio-master
         image: {{ include "alluxio.image" . }}
@@ -56,16 +56,16 @@ spec:
         - |
           # Create journal directory
           mkdir -p /opt/alluxio/journal
-          
+
           # Format journal if it doesn't exist
           if [ ! -f /opt/alluxio/journal/.formatted ]; then
             /opt/alluxio/bin/alluxio formatJournal
             touch /opt/alluxio/journal/.formatted
           fi
-          
+
           # Start master
           /opt/alluxio/bin/alluxio-start.sh master
-          
+
           # Keep container running and monitor process
           while true; do
             if ! pgrep -f "alluxio.master.AlluxioMaster" > /dev/null; then
@@ -90,23 +90,23 @@ spec:
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: {{ include "accumulo.fullname" . }}-secret
+              name: {{include "accumulo.fullname" .}}-secret
               key: s3-access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ include "accumulo.fullname" . }}-secret
+              name: {{include "accumulo.fullname" .}}-secret
               key: s3-secret-key
         {{- else if eq .Values.storage.provider "minio" }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: {{ include "accumulo.fullname" . }}-secret
+              name: {{include "accumulo.fullname" .}}-secret
               key: minio-access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ include "accumulo.fullname" . }}-secret
+              name: {{include "accumulo.fullname" .}}-secret
               key: minio-secret-key
         {{- end }}
         volumeMounts:
@@ -139,28 +139,28 @@ spec:
       volumes:
       - name: alluxio-config
         configMap:
-          name: {{ include "accumulo.fullname" . }}-alluxio-config
+          name: {{include "accumulo.fullname" .}}-alluxio-config
       - name: journal
         {{- if .Values.alluxio.master.journal.storageClass }}
         persistentVolumeClaim:
-          claimName: {{ include "accumulo.fullname" . }}-alluxio-master-journal
+          claimName: {{include "accumulo.fullname" .}}-alluxio-master-journal
         {{- else }}
         emptyDir: {}
         {{- end }}
       {{- if and (eq .Values.storage.provider "gcs") .Values.storage.gcs.keyFile }}
       - name: gcs-secret
         secret:
-          secretName: {{ include "accumulo.fullname" . }}-gcs-secret
+          secretName: {{include "accumulo.fullname" .}}-gcs-secret
       {{- end }}
 ---
 {{- if .Values.alluxio.master.journal.storageClass }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "accumulo.fullname" . }}-alluxio-master-journal
+  name: {{include "accumulo.fullname" .}}-alluxio-master-journal
   labels:
     {{- include "accumulo.labels" . | nindent 4 }}
-    app.kubernetes.io/component: alluxio-master
+  app.kubernetes.io/component: alluxio-master
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

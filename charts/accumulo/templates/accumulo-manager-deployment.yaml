@@ -15,16 +15,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+#
 
 {{- if .Values.accumulo.manager.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "accumulo.fullname" . }}-manager
+  name: {{include "accumulo.fullname" .}}-manager
   labels:
     {{- $component := "manager" }}
-    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -34,12 +34,12 @@ spec:
   selector:
     matchLabels:
       {{- include "accumulo.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: manager
+    app.kubernetes.io/component: manager
   template:
     metadata:
       labels:
         {{- include "accumulo.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: manager
+      app.kubernetes.io/component: manager
       {{- with .Values.global.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
@@ -51,7 +51,7 @@ spec:
         {{- $podAntiAffinity := .Values.accumulo.manager.podAntiAffinity }}
         {{- include "accumulo.podAntiAffinity" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component "podAntiAffinity" $podAntiAffinity) | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      serviceAccountName: {{include "accumulo.serviceAccountName" .}}
       initContainers:
       - name: wait-for-zookeeper
         image: busybox:1.35
@@ -72,7 +72,7 @@ spec:
         - -c
         - |
           echo "Waiting for Alluxio master to be ready..."
-          until nc -z {{ include "accumulo.fullname" . }}-alluxio-master 19998; do
+          until nc -z {{include "accumulo.fullname" .}}-alluxio-master 19998; do
             echo "Waiting for Alluxio master..."
             sleep 5
           done
@@ -89,7 +89,7 @@ spec:
             echo "Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists"
             exit 0
           fi
-          
+
           echo "Initializing Accumulo instance '{{ .Values.accumulo.instance.name }}'"
           /opt/accumulo/bin/accumulo init \
             --instance-name {{ .Values.accumulo.instance.name }} \
@@ -157,7 +157,7 @@ spec:
       volumes:
       - name: accumulo-config
         configMap:
-          name: {{ include "accumulo.fullname" . }}-config
+          name: {{include "accumulo.fullname" .}}-config
           defaultMode: 0755
       - name: logs
         emptyDir: {}
