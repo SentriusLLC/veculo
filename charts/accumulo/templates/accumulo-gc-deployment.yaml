@@ -21,10 +21,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "accumulo.fullname" . }}-gc
+  name: {{include "accumulo.fullname" .}}-gc
   labels:
     {{- $component := "gc" }}
-    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -34,18 +34,18 @@ spec:
   selector:
     matchLabels:
       {{- include "accumulo.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: gc
+    app.kubernetes.io/component: gc
   template:
     metadata:
       labels:
         {{- include "accumulo.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: gc
+      app.kubernetes.io/component: gc
       {{- with .Values.global.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      serviceAccountName: {{include "accumulo.serviceAccountName" .}}
       initContainers:
       - name: wait-for-manager
         image: busybox:1.35
@@ -54,7 +54,7 @@ spec:
         - -c
         - |
           echo "Waiting for Accumulo manager to be ready..."
-          until nc -z {{ include "accumulo.fullname" . }}-manager 9999; do
+          until nc -z {{include "accumulo.fullname" .}}-manager 9999; do
             echo "Waiting for manager..."
             sleep 5
           done
@@ -89,7 +89,7 @@ spec:
       volumes:
       - name: accumulo-config
         configMap:
-          name: {{ include "accumulo.fullname" . }}-config
+          name: {{include "accumulo.fullname" .}}-config
           defaultMode: 0755
       - name: logs
         emptyDir: {}

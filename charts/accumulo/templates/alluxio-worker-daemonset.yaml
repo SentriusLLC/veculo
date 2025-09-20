@@ -21,10 +21,10 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "accumulo.fullname" . }}-alluxio-worker
+  name: {{include "accumulo.fullname" .}}-alluxio-worker
   labels:
     {{- $component := "alluxio-worker" }}
-    {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
+  {{- include "accumulo.componentLabels" (dict "Chart" .Chart "Release" .Release "Values" .Values "component" $component) | nindent 4 }}
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -33,18 +33,18 @@ spec:
   selector:
     matchLabels:
       {{- include "accumulo.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: alluxio-worker
+    app.kubernetes.io/component: alluxio-worker
   template:
     metadata:
       labels:
         {{- include "accumulo.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: alluxio-worker
+      app.kubernetes.io/component: alluxio-worker
       {{- with .Values.global.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "accumulo.serviceAccountName" . }}
+      serviceAccountName: {{include "accumulo.serviceAccountName" .}}
       hostNetwork: false
       containers:
       - name: alluxio-worker
@@ -56,21 +56,21 @@ spec:
         - |
           # Wait for master to be ready
           echo "Waiting for Alluxio master to be ready..."
-          until nc -z {{ include "accumulo.fullname" . }}-alluxio-master 19998; do
+          until nc -z {{include "accumulo.fullname" .}}-alluxio-master 19998; do
             echo "Waiting for master..."
             sleep 5
           done
-          
+
           # Create directories
           mkdir -p /opt/ramdisk
           mkdir -p /opt/alluxio/logs
-          
+
           # Mount ramdisk for memory tier
           mount -t tmpfs -o size={{ .Values.alluxio.properties.alluxio.worker.memory.size }} tmpfs /opt/ramdisk
-          
+
           # Start worker
           /opt/alluxio/bin/alluxio-start.sh worker
-          
+
           # Keep container running and monitor process
           while true; do
             if ! pgrep -f "alluxio.worker.AlluxioWorker" > /dev/null; then
@@ -95,28 +95,28 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         - name: ALLUXIO_MASTER_HOSTNAME
-          value: {{ include "accumulo.fullname" . }}-alluxio-master
+          value: {{include "accumulo.fullname" .}}-alluxio-master
         {{- if eq .Values.storage.provider "s3" }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: {{ include "accumulo.fullname" . }}-secret
+              name: {{include "accumulo.fullname" .}}-secret
               key: s3-access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ include "accumulo.fullname" . }}-secret
+              name: {{include "accumulo.fullname" .}}-secret
               key: s3-secret-key
         {{- else if eq .Values.storage.provider "minio" }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: {{ include "accumulo.fullname" . }}-secret
+              name: {{include "accumulo.fullname" .}}-secret
               key: minio-access-key
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ include "accumulo.fullname" . }}-secret
+              name: {{include "accumulo.fullname" .}}-secret
               key: minio-secret-key
         {{- end }}
         volumeMounts:
@@ -153,11 +153,11 @@ spec:
       volumes:
       - name: alluxio-config
         configMap:
-          name: {{ include "accumulo.fullname" . }}-alluxio-config
+          name: {{include "accumulo.fullname" .}}-alluxio-config
       - name: storage
         {{- if .Values.alluxio.worker.storage.storageClass }}
         persistentVolumeClaim:
-          claimName: {{ include "accumulo.fullname" . }}-alluxio-worker-storage
+          claimName: {{include "accumulo.fullname" .}}-alluxio-worker-storage
         {{- else }}
         emptyDir: {}
         {{- end }}
@@ -167,17 +167,17 @@ spec:
       {{- if and (eq .Values.storage.provider "gcs") .Values.storage.gcs.keyFile }}
       - name: gcs-secret
         secret:
-          secretName: {{ include "accumulo.fullname" . }}-gcs-secret
+          secretName: {{include "accumulo.fullname" .}}-gcs-secret
       {{- end }}
 ---
 {{- if .Values.alluxio.worker.storage.storageClass }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "accumulo.fullname" . }}-alluxio-worker-storage
+  name: {{include "accumulo.fullname" .}}-alluxio-worker-storage
   labels:
     {{- include "accumulo.labels" . | nindent 4 }}
-    app.kubernetes.io/component: alluxio-worker
+  app.kubernetes.io/component: alluxio-worker
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
