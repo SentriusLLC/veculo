@@ -252,7 +252,7 @@ data:
     ## Performance and cache settings
     alluxio.user.file.write.location.policy.class={{ .Values.alluxio.properties.alluxio.user.file.write.location.policy.class }}
     alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes={{ .Values.alluxio.properties.alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes }}
-    
+
     ## Path-specific write modes for Accumulo data
     {{- range $path, $mode := .Values.alluxio.pathWriteModes }}
     alluxio.user.file.write.type.{{ $path }}={{ $mode }}
