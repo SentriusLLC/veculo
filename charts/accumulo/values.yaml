@@ -169,13 +169,33 @@ alluxio:
   # Alluxio properties configuration
   properties:
     # Under storage configuration - will be set based on storage provider
-    alluxio.master.mount.table.root.ufs: ""
-    # Cache settings
-    alluxio.user.file.write.location.policy.class: "alluxio.client.file.policy.LocalFirstPolicy"
-    alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes: "512MB"
+    alluxio:
+      master:
+        mount:
+          table:
+            root:
+              ufs: ""
+        journal:
+          type: "UFS"
+      # Cache settings
+      user:
+        file:
+          write:
+            location:
+              policy:
+                class: "alluxio.client.file.policy.LocalFirstPolicy"
+          avoid:
+            eviction:
+              policy:
+                reserved:
+                  size:
+                    bytes: "512MB"
     # Memory allocation
-    alluxio.worker.memory.size: "1GB"
-    alluxio.master.journal.type: "UFS"
+      worker:
+        memory:
+          size: "1GB"
+
+
     
   # Per-path write modes for different Accumulo data
   pathWriteModes:

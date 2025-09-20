@@ -106,7 +106,32 @@ alluxio:
       size: "5Gi"
     
   properties:
-    alluxio.worker.memory.size: "512MB"
+    # Under storage configuration - will be set based on storage provider
+    alluxio:
+      master:
+        mount:
+          table:
+            root:
+              ufs: ""
+        journal:
+          type: "UFS"
+      # Cache settings
+      user:
+        file:
+          write:
+            location:
+              policy:
+                class: "alluxio.client.file.policy.LocalFirstPolicy"
+            avoid:
+              eviction:
+                policy:
+                  reserved:
+                    size:
+                      bytes: "512MB"  # 120MB
+      # Memory allocation
+      worker:
+        memory:
+          size: "1GB"
 
 # Use MinIO for development storage
 storage:
