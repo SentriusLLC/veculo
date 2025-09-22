@@ -34,12 +34,12 @@ spec:
   selector:
     matchLabels:
       {{- include "accumulo.selectorLabels" . | nindent 6 }}
-    app.kubernetes.io/component: manager
+      app.kubernetes.io/component: manager
   template:
     metadata:
       labels:
         {{- include "accumulo.selectorLabels" . | nindent 8 }}
-      app.kubernetes.io/component: manager
+        app.kubernetes.io/component: manager
       {{- with .Values.global.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}

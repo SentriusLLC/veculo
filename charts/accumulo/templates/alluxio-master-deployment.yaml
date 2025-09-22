@@ -34,12 +34,12 @@ spec:
   selector:
     matchLabels:
       {{- include "accumulo.selectorLabels" . | nindent 6 }}
-    app.kubernetes.io/component: alluxio-master
+      app.kubernetes.io/component: alluxio-master
   template:
     metadata:
       labels:
         {{- include "accumulo.selectorLabels" . | nindent 8 }}
-      app.kubernetes.io/component: alluxio-master
+        app.kubernetes.io/component: alluxio-master
       {{- with .Values.global.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
@@ -160,7 +160,7 @@ metadata:
   name: {{include "accumulo.fullname" .}}-alluxio-master-journal
   labels:
     {{- include "accumulo.labels" . | nindent 4 }}
-  app.kubernetes.io/component: alluxio-master
+    app.kubernetes.io/component: alluxio-master
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
