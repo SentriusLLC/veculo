@@ -37,12 +37,12 @@ keywords:
   - database
 annotations:
   category: Database
-dependencies:
-  - name: zookeeper
-    version: "1.0.0" 
-    repository: "file://charts/zookeeper"
-    condition: zookeeper.enabled
-  - name: minio
-    version: "1.0.0"
-    repository: "file://charts/minio"
-    condition: minio.enabled
+# dependencies:
+#   - name: zookeeper
+#     version: "1.0.0" 
+#     repository: "file://charts/zookeeper"
+#     condition: zookeeper.enabled
+#   - name: minio
+#     version: "1.0.0"
+#     repository: "file://charts/minio"
+#     condition: minio.enabled
