@@ -133,6 +133,18 @@ alluxio:
         memory:
           size: "1GB"
 
+  # Per-path write modes for different Accumulo data
+  pathWriteModes:
+    "/accumulo/wal": "THROUGH"          # WAL needs immediate durability
+    "/accumulo/tables": "CACHE_THROUGH" # Tables benefit from caching
+    "/accumulo/tmp": "ASYNC_THROUGH"    # Temp files can be async
+
+  # Per-path write modes for different Accumulo data
+  pathWriteModes:
+    "/accumulo/wal": "THROUGH"          # WAL needs immediate durability
+    "/accumulo/tables": "CACHE_THROUGH" # Tables benefit from caching
+    "/accumulo/tmp": "ASYNC_THROUGH"    # Temp files can be async
+
 # Use MinIO for development storage
 storage:
   provider: "minio"
