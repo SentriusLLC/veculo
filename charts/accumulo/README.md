@@ -215,7 +215,7 @@ The chart supports multiple authentication methods:
 1. **Pods stuck in Pending**: Check resource requests and node capacity
 2. **Storage connection issues**: Verify cloud credentials and bucket permissions
 3. **Alluxio mount failures**: Check storage provider configuration
-4. **Alluxio "Invalid property key POD_IP"**: This error occurs when Alluxio configuration uses incorrect environment variable syntax. Ensure all environment variables in `alluxio-site.properties` use the `${env.VARIABLE_NAME}` format, not `${VARIABLE_NAME}`
+4. **Alluxio "Invalid property key POD_IP"**: This error occurs when Alluxio configuration uses incorrect environment variable syntax. Ensure all environment variables in `alluxio-site.properties` use the `${env.VARIABLE_NAME}` format, not `${VARIABLE_NAME}`. For example, use `alluxio.master.hostname=${env.POD_IP}` instead of `alluxio.master.hostname=${POD_IP}`
 
 ### Debugging Commands
 
