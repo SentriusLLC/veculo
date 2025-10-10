@@ -33,12 +33,12 @@ spec:
   selector:
     matchLabels:
       {{- include "accumulo.selectorLabels" . | nindent 6 }}
-    app.kubernetes.io/component: alluxio-worker
+      app.kubernetes.io/component: alluxio-worker
   template:
     metadata:
       labels:
         {{- include "accumulo.selectorLabels" . | nindent 8 }}
-      app.kubernetes.io/component: alluxio-worker
+        app.kubernetes.io/component: alluxio-worker
       {{- with .Values.global.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
@@ -177,7 +177,7 @@ metadata:
   name: {{include "accumulo.fullname" .}}-alluxio-worker-storage
   labels:
     {{- include "accumulo.labels" . | nindent 4 }}
-  app.kubernetes.io/component: alluxio-worker
+    app.kubernetes.io/component: alluxio-worker
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

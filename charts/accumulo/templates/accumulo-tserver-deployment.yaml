@@ -34,12 +34,12 @@ spec:
   selector:
     matchLabels:
       {{- include "accumulo.selectorLabels" . | nindent 6 }}
-    app.kubernetes.io/component: tserver
+      app.kubernetes.io/component: tserver
   template:
     metadata:
       labels:
         {{- include "accumulo.selectorLabels" . | nindent 8 }}
-      app.kubernetes.io/component: tserver
+        app.kubernetes.io/component: tserver
       {{- with .Values.global.commonAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}

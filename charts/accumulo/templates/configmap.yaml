@@ -1,22 +1,21 @@
 #
-# Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
-#
-#   https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitations
-# under the License.
-#
-
+  # Licensed to the Apache Software Foundation (ASF) under one
+  # or more contributor license agreements.  See the NOTICE file
+  # distributed with this work for additional information
+  # regarding copyright ownership.  The ASF licenses this file
+  # to you under the Apache License, Version 2.0 (the
+  # "License"); you may not use this file except in compliance
+  # with the License.  You may obtain a copy of the License at
+  #
+  #   https://www.apache.org/licenses/LICENSE-2.0
+  #
+  # Unless required by applicable law or agreed to in writing,
+  # software distributed under the License is distributed on an
+  # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  # KIND, either express or implied.  See the License for the
+  # specific language governing permissions and limitations
+  # under the License.
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -30,9 +29,8 @@ metadata:
 data:
   accumulo.properties: |
     # Apache Accumulo Configuration for Kubernetes
-
     ## Instance configuration
-    instance.volumes={{ .Values.accumulo.instance.volumes }}
+    instance.volumes="{{ .Values.accumulo.instance.volumes }}"
     instance.zookeeper.host={{ include "accumulo.zookeeperHosts" . }}
     instance.secret={{ .Values.accumulo.instance.secret }}
 
@@ -70,7 +68,6 @@ data:
 
   accumulo-env.sh: |
     #!/usr/bin/env bash
-
     ## Accumulo environment for Kubernetes deployment
 
     ## Required environment variables
@@ -192,22 +189,21 @@ metadata:
   name: {{include "accumulo.fullname" .}}-alluxio-config
   labels:
     {{- include "accumulo.labels" . | nindent 4 }}
-  app.kubernetes.io/component: alluxio
+    app.kubernetes.io/component: alluxio
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 data:
   alluxio-site.properties: |
+    # adsg
     # Alluxio configuration for Accumulo storage
-
     ## Master configuration
     alluxio.master.hostname={{include "accumulo.fullname" .}}-alluxio-master
     alluxio.master.port=19998
     alluxio.master.web.port=19999
     alluxio.master.journal.type=UFS
     alluxio.master.journal.folder=/opt/alluxio/journal
-
     ## Worker configuration
     alluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}
     alluxio.worker.port=29999
@@ -225,7 +221,7 @@ data:
     alluxio.worker.tieredstore.level0.watermark.low.ratio=0.7
 
     ## Under storage system configuration
-    {{- include "accumulo.storageConfig" . }}
+    {{- include "accumulo.storageConfig" . | nindent 4 }}
 
     {{- if eq .Values.storage.provider "s3" }}
     # S3 configuration
@@ -247,16 +243,18 @@ data:
     {{- else if eq .Values.storage.provider "azure" }}
     # Azure configuration
     fs.azure.account.key.{{ .Values.storage.azure.account }}.dfs.core.windows.net={{ .Values.storage.azure.key }}
-    {{- end }}
+    {{- end -}}
 
     ## Performance and cache settings
-    alluxio.user.file.write.location.policy.class={{ .Values.alluxio.properties.alluxio.user.file.write.location.policy.class }}
-    alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes={{ .Values.alluxio.properties.alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes }}
+    alluxio.user.file.write.location.policy.class= "alluxio.client.file.policy.LocalFirstPolicy"
+    alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes= 512MB
+
+
 
     ## Path-specific write modes for Accumulo data
     {{- range $path, $mode := .Values.alluxio.pathWriteModes }}
     alluxio.user.file.write.type.{{ $path }}={{ $mode }}
-    {{- end }}
+    {{- end -}}
 
     ## Network and RPC settings
     alluxio.network.host.resolution.timeout=5s

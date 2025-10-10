@@ -24,7 +24,7 @@ metadata:
   name: {{include "accumulo.fullname" .}}-alluxio-master
   labels:
     {{- include "accumulo.labels" . | nindent 4}}
-  app.kubernetes.io/component: alluxio-master
+    app.kubernetes.io/component: alluxio-master
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -42,5 +42,5 @@ spec:
     protocol: TCP
   selector:
     {{- include "accumulo.selectorLabels" . | nindent 4 }}
-  app.kubernetes.io/component: alluxio-master
+    app.kubernetes.io/component: alluxio-master
 {{- end }}
