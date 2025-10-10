@@ -186,24 +186,72 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{include "accumulo.fullname" .}}-alluxio-config
+  name: {{ include "accumulo.fullname" . }}-alluxio-master-config
   labels:
     {{- include "accumulo.labels" . | nindent 4 }}
-    app.kubernetes.io/component: alluxio
+    app.kubernetes.io/component: alluxio-master
   {{- with .Values.global.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 data:
   alluxio-site.properties: |
-    # adsg
-    # Alluxio configuration for Accumulo storage
+    # Alluxio configuration for Accumulo storage (Master)
     ## Master configuration
-    alluxio.master.hostname={{include "accumulo.fullname" .}}-alluxio-master
+    alluxio.master.hostname=${POD_IP}
     alluxio.master.port=19998
     alluxio.master.web.port=19999
     alluxio.master.journal.type=UFS
     alluxio.master.journal.folder=/opt/alluxio/journal
+
+    ## Under storage system configuration
+    {{- include "accumulo.storageConfig" . | nindent 4 }}
+
+    {{- if eq .Values.storage.provider "s3" }}
+    # S3 configuration
+    alluxio.underfs.s3.endpoint={{ .Values.storage.s3.endpoint }}
+    alluxio.underfs.s3.region={{ .Values.storage.s3.region }}
+    s3a.access.key={{ .Values.storage.s3.accessKey }}
+    s3a.secret.key={{ .Values.storage.s3.secretKey }}
+    {{- else if eq .Values.storage.provider "minio" }}
+    # MinIO configuration
+    alluxio.underfs.s3.endpoint={{ .Values.storage.minio.endpoint }}
+    alluxio.underfs.s3.disable.dns.buckets=true
+    alluxio.underfs.s3.inherit.acl=false
+    s3a.access.key={{ .Values.storage.minio.accessKey }}
+    s3a.secret.key={{ .Values.storage.minio.secretKey }}
+    {{- else if eq .Values.storage.provider "gcs" }}
+    # GCS configuration
+    fs.gcs.project.id={{ .Values.storage.gcs.projectId }}
+    fs.gcs.auth.service.account.json.keyfile=/opt/alluxio/secrets/gcs-key.json
+    {{- else if eq .Values.storage.provider "azure" }}
+    # Azure configuration
+    fs.azure.account.key.{{ .Values.storage.azure.account }}.dfs.core.windows.net={{ .Values.storage.azure.key }}
+    {{- end -}}
+
+    ## Network and RPC settings
+    alluxio.network.host.resolution.timeout=5s
+    alluxio.user.rpc.retry.max.duration=10s
+    alluxio.user.rpc.retry.base.sleep=1s
+
+    ## Security configuration
+    alluxio.security.authentication.type=NOSASL
+    alluxio.security.authorization.permission.enabled=false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "accumulo.fullname" . }}-alluxio-worker-config
+  labels:
+    {{- include "accumulo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alluxio-worker
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  alluxio-site.properties: |
+    # Alluxio configuration for Accumulo storage (Worker)
     ## Worker configuration
     alluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}
     alluxio.worker.port=29999
@@ -246,10 +294,8 @@ data:
     {{- end -}}
 
     ## Performance and cache settings
-    alluxio.user.file.write.location.policy.class= "alluxio.client.file.policy.LocalFirstPolicy"
-    alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes= 512MB
-
-
+    alluxio.user.file.write.location.policy.class="alluxio.client.file.policy.LocalFirstPolicy"
+    alluxio.user.file.write.avoid.eviction.policy.reserved.size.bytes=512MB
 
     ## Path-specific write modes for Accumulo data
     {{- range $path, $mode := .Values.alluxio.pathWriteModes }}
