@@ -198,7 +198,7 @@ data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage (Master)
     ## Master configuration
-    alluxio.master.hostname=${POD_IP}
+    alluxio.master.hostname=${env.POD_IP}
     alluxio.master.port=19998
     alluxio.master.web.port=19999
     alluxio.master.journal.type=UFS
@@ -253,7 +253,7 @@ data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage (Worker)
     ## Worker configuration
-    alluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}
+    alluxio.worker.hostname=${env.ALLUXIO_WORKER_HOSTNAME}
     alluxio.worker.port=29999
     alluxio.worker.web.port=30000
     alluxio.worker.data.port=29999
