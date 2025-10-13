@@ -253,7 +253,7 @@ data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage (Worker)
     ## Worker configuration
-    alluxio.worker.hostname=${env.ALLUXIO_WORKER_HOSTNAME}
+    #alluxio.worker.hostname=${env.POD_IP}
     alluxio.worker.port=29999
     alluxio.worker.web.port=30000
     alluxio.worker.data.port=29999

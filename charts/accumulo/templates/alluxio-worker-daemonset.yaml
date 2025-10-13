@@ -56,11 +56,12 @@ spec:
         - |
           # Wait for master to be ready
           echo "Waiting for Alluxio master to be ready..."
-          until nc -z {{include "accumulo.fullname" .}}-alluxio-master 19998; do
+          until (echo > /dev/tcp/accumulo-alluxio-master/19998) >/dev/null 2>&1; do
             echo "Waiting for master..."
             sleep 5
           done
 
+    
           # Create directories
           mkdir -p /opt/ramdisk
           mkdir -p /opt/alluxio/logs
@@ -90,7 +91,7 @@ spec:
           containerPort: 30000
           protocol: TCP
         env:
-        - name: ALLUXIO_WORKER_HOSTNAME
+        - name: POD_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP

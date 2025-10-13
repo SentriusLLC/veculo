@@ -111,7 +111,7 @@ ZooKeeper connection string
 {{- define "accumulo.zookeeperHosts" -}}
 {{- if .Values.zookeeper.enabled }}
 {{- $fullname := include "accumulo.fullname" . }}
-{{- printf "%s-zookeeper:2181" $fullname }}
+{{- printf "%s-zookeeper-zookeeper:2181" $fullname }}
 {{- else }}
 {{- .Values.zookeeper.external.hosts }}
 {{- end }}
