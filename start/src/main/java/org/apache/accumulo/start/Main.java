@@ -23,9 +23,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -198,29 +196,19 @@ public class Main {
       checkDuplicates(final Iterable<? extends KeywordExecutable> services) {
     TreeSet<String> banList = new TreeSet<>();
     TreeMap<String,KeywordExecutable> results = new TreeMap<>();
-    Iterator<? extends KeywordExecutable> iterator = services.iterator();
-    while (true) {
-      try {
-        if (!iterator.hasNext()) {
-          break;
-        }
-        KeywordExecutable service = iterator.next();
-        String keyword = service.keyword();
-        if (banList.contains(keyword)) {
-          // subsequent times a duplicate is found, just warn and exclude it
-          warnDuplicate(service);
-        } else if (results.containsKey(keyword)) {
-          // the first time a duplicate is found, banList it and warn
-          banList.add(keyword);
-          warnDuplicate(results.remove(keyword));
-          warnDuplicate(service);
-        } else {
-          // first observance of this keyword, so just add it to the list
-          results.put(service.keyword(), service);
-        }
-      } catch (ServiceConfigurationError e) {
-        // Skip services that fail to load due to missing dependencies
-        log.debug("Unable to load service: {}", e.getMessage());
+    for (KeywordExecutable service : services) {
+      String keyword = service.keyword();
+      if (banList.contains(keyword)) {
+        // subsequent times a duplicate is found, just warn and exclude it
+        warnDuplicate(service);
+      } else if (results.containsKey(keyword)) {
+        // the first time a duplicate is found, banList it and warn
+        banList.add(keyword);
+        warnDuplicate(results.remove(keyword));
+        warnDuplicate(service);
+      } else {
+        // first observance of this keyword, so just add it to the list
+        results.put(service.keyword(), service);
       }
     }
     return Collections.unmodifiableSortedMap(results);
