@@ -94,7 +94,11 @@ Accumulo image
 */}}
 {{- define "accumulo.image" -}}
 {{- $registry := .Values.global.imageRegistry | default .Values.accumulo.image.registry }}
+{{- if $registry }}
 {{- printf "%s/%s:%s" $registry .Values.accumulo.image.repository .Values.accumulo.image.tag }}
+{{- else }}
+{{- printf "%s:%s" .Values.accumulo.image.repository .Values.accumulo.image.tag }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -102,7 +106,11 @@ Alluxio image
 */}}
 {{- define "alluxio.image" -}}
 {{- $registry := .Values.global.imageRegistry | default .Values.alluxio.image.registry }}
+{{- if $registry }}
 {{- printf "%s/%s:%s" $registry .Values.alluxio.image.repository .Values.alluxio.image.tag }}
+{{- else }}
+{{- printf "%s:%s" .Values.alluxio.image.repository .Values.alluxio.image.tag }}
+{{- end }}
 {{- end }}
 
 {{/*
@@ -111,7 +119,7 @@ ZooKeeper connection string
 {{- define "accumulo.zookeeperHosts" -}}
 {{- if .Values.zookeeper.enabled }}
 {{- $fullname := include "accumulo.fullname" . }}
-{{- printf "%s-zookeeper:2181" $fullname }}
+{{- printf "%s-zookeeper-zookeeper:2181" $fullname }}
 {{- else }}
 {{- .Values.zookeeper.external.hosts }}
 {{- end }}

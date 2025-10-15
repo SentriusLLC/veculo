@@ -90,7 +90,7 @@ data:
     CLASSPATH="${CLASSPATH}:${HADOOP_CONF_DIR}:${HADOOP_HOME}/share/hadoop/client/*"
 
     # Add ZooKeeper libraries
-    ZK_JARS=$(find "${ZOOKEEPER_HOME}/lib/" -maxdepth 1 -name '*.jar' -not -name '*slf4j*' -not -name '*log4j*' | paste -sd: -)
+    ZK_JARS=$(find "${ZOOKEEPER_HOME}" -maxdepth 1 -name '*.jar' -not -name '*slf4j*' -not -name '*log4j*' | paste -sd: -)
     CLASSPATH="${CLASSPATH}:${ZOOKEEPER_HOME}/*:${ZK_JARS}"
 
     export CLASSPATH
@@ -198,7 +198,7 @@ data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage (Master)
     ## Master configuration
-    alluxio.master.hostname=${POD_IP}
+    alluxio.master.hostname=${env.POD_IP}
     alluxio.master.port=19998
     alluxio.master.web.port=19999
     alluxio.master.journal.type=UFS
@@ -253,7 +253,7 @@ data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage (Worker)
     ## Worker configuration
-    alluxio.worker.hostname=${ALLUXIO_WORKER_HOSTNAME}
+    #alluxio.worker.hostname=${env.POD_IP}
     alluxio.worker.port=29999
     alluxio.worker.web.port=30000
     alluxio.worker.data.port=29999
