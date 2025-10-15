@@ -199,8 +199,11 @@ public class Main {
     TreeSet<String> banList = new TreeSet<>();
     TreeMap<String,KeywordExecutable> results = new TreeMap<>();
     Iterator<? extends KeywordExecutable> iterator = services.iterator();
-    while (iterator.hasNext()) {
+    while (true) {
       try {
+        if (!iterator.hasNext()) {
+          break;
+        }
         KeywordExecutable service = iterator.next();
         String keyword = service.keyword();
         if (banList.contains(keyword)) {
