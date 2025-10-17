@@ -33,6 +33,16 @@ global:
 
 # Accumulo configuration
 accumulo:
+  extraEnv:
+    - name: ALLUXIO_CLIENT_HOME
+      value: /opt/alluxio/client
+  extraVolumeMounts:
+    - name: alluxio-client
+      mountPath: /opt/alluxio/client
+  extraVolumes:
+    - name: alluxio-client
+      hostPath:
+        path: /srv/alluxio/client   # or a PVC with Alluxio client jars
   # Accumulo instance configuration
   instance:
     # Instance name

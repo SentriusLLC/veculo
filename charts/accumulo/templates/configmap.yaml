@@ -1,20 +1,22 @@
 #
-  # Licensed to the Apache Software Foundation (ASF) under one
-  # or more contributor license agreements.  See the NOTICE file
-  # distributed with this work for additional information
-  # regarding copyright ownership.  The ASF licenses this file
-  # to you under the Apache License, Version 2.0 (the
-  # "License"); you may not use this file except in compliance
-  # with the License.  You may obtain a copy of the License at
-  #
-  #   https://www.apache.org/licenses/LICENSE-2.0
-  #
-  # Unless required by applicable law or agreed to in writing,
-  # software distributed under the License is distributed on an
-  # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-  # KIND, either express or implied.  See the License for the
-  # specific language governing permissions and limitations
-  # under the License.
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -30,7 +32,7 @@ data:
   accumulo.properties: |
     # Apache Accumulo Configuration for Kubernetes
     ## Instance configuration
-    instance.volumes="{{ .Values.accumulo.instance.volumes }}"
+    instance.volumes={{ .Values.accumulo.instance.volumes }}
     instance.zookeeper.host={{ include "accumulo.zookeeperHosts" . }}
     instance.secret={{ .Values.accumulo.instance.secret }}
 
@@ -65,33 +67,45 @@ data:
     ## Alluxio-specific configuration
     general.vfs.context.class.name=org.apache.accumulo.core.spi.fs.VolumeChooserEnvironment
     general.vfs.cache.dir=/tmp/accumulo-vfs-cache
+    fs.alluxio.impl=alluxio.hadoop.FileSystem
 
   accumulo-env.sh: |
     #!/usr/bin/env bash
     ## Accumulo environment for Kubernetes deployment
 
     ## Required environment variables
+
     export ACCUMULO_LOG_DIR="${ACCUMULO_LOG_DIR:-/opt/accumulo/logs}"
     export HADOOP_HOME="${HADOOP_HOME:-/opt/hadoop}"
     export HADOOP_CONF_DIR="${HADOOP_CONF_DIR:-/opt/hadoop/etc/hadoop}"
     export ZOOKEEPER_HOME="${ZOOKEEPER_HOME:-/opt/zookeeper}"
+    export ALLUXIO_CLIENT_HOME="${ALLUXIO_CLIENT_HOME:-/opt/alluxio/client}"
 
     ## Build classpath
     if [[ -n $CLASSPATH ]]; then
-      CLASSPATH="${CLASSPATH}:${ACCUMULO_CONF_DIR}"
+    CLASSPATH="${CLASSPATH}:${ACCUMULO_CONF_DIR}"
     else
-      CLASSPATH="${ACCUMULO_CONF_DIR}"
+    CLASSPATH="${ACCUMULO_CONF_DIR}"
     fi
+
+    # ✅ Add Hadoop configuration FIRST (core-site.xml must be visible before Hadoop libs)
+    CLASSPATH="${CLASSPATH}:${HADOOP_CONF_DIR}:${HADOOP_HOME}/etc/hadoop"
 
     # Add Accumulo libraries
     CLASSPATH="${CLASSPATH}:${ACCUMULO_HOME}/lib/*"
 
     # Add Hadoop libraries
-    CLASSPATH="${CLASSPATH}:${HADOOP_CONF_DIR}:${HADOOP_HOME}/share/hadoop/client/*"
+    CLASSPATH="${CLASSPATH}:${HADOOP_HOME}/share/hadoop/common/*:${HADOOP_HOME}/share/hadoop/client/*"
 
     # Add ZooKeeper libraries
     ZK_JARS=$(find "${ZOOKEEPER_HOME}" -maxdepth 1 -name '*.jar' -not -name '*slf4j*' -not -name '*log4j*' | paste -sd: -)
     CLASSPATH="${CLASSPATH}:${ZOOKEEPER_HOME}/*:${ZK_JARS}"
+
+    # Add Alluxio client libraries
+    if [ -d "/opt/alluxio/client" ]; then
+      ALLUXIO_JARS=$(find /opt/alluxio/client -maxdepth 1 -name '*.jar' | paste -sd: -)
+      CLASSPATH="${CLASSPATH}:/opt/alluxio/client/*:${ALLUXIO_JARS}"
+    fi
 
     export CLASSPATH
 
@@ -310,3 +324,24 @@ data:
     ## Security configuration
     alluxio.security.authentication.type=NOSASL
     alluxio.security.authorization.permission.enabled=false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "accumulo.fullname" . }}-core-site
+  labels:
+    {{- include "accumulo.labels" . | nindent 4 }}
+data:
+  core-site.xml: |
+    <?xml version="1.0"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+        <property>
+            <name>fs.alluxio.impl</name>
+            <value>alluxio.hadoop.FileSystem</value>
+        </property>
+        <property>
+            <name>fs.AbstractFileSystem.alluxio.impl</name>
+            <value>alluxio.hadoop.AlluxioFileSystem</value>
+        </property>
+    </configuration>

@@ -27,9 +27,11 @@ ENV ACCUMULO_VERSION=4.0.0-SNAPSHOT
 ENV HADOOP_VERSION=3.3.6  
 ENV ZOOKEEPER_VERSION=3.8.4
 ENV ACCUMULO_HOME=/opt/accumulo
-ENV HADOOP_HOME=/opt/hadoop
+ENV HADOOP_HOME=/opt/hadoop/hadoop-${HADOOP_VERSION}
 ENV ZOOKEEPER_HOME=/opt/zookeeper
 ENV JAVA_HOME=/opt/java/openjdk
+ENV ALLUXIO_CLIENT_HOME=/opt/alluxio/client
+
 
 # Install required packages
 RUN apt-get update && \
@@ -51,21 +53,56 @@ RUN mkdir -p $ACCUMULO_HOME $HADOOP_HOME $ZOOKEEPER_HOME && \
     chown -R accumulo:accumulo $ACCUMULO_HOME $HADOOP_HOME $ZOOKEEPER_HOME
 
 # Download and install Hadoop (client libraries only)
+
+# Download and install Hadoop (client libraries only)
 RUN wget -q https://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz && \
-    tar -xzf hadoop-${HADOOP_VERSION}.tar.gz -C /opt && \
-    mv /opt/hadoop-${HADOOP_VERSION} $HADOOP_HOME && \
+    tar -xzf hadoop-${HADOOP_VERSION}.tar.gz -C /opt/hadoop && \
     rm hadoop-${HADOOP_VERSION}.tar.gz && \
-    chown -R accumulo:accumulo $HADOOP_HOME
+    chown -R accumulo:accumulo /opt/hadoop
+
 
 # Download and install ZooKeeper (client libraries only)
-RUN wget -q https://archive.apache.org/dist/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz && \
-    tar -xzf apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -C /opt && \
-    mv /opt/apache-zookeeper-${ZOOKEEPER_VERSION}-bin $ZOOKEEPER_HOME && \
-    rm apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz && \
-    chown -R accumulo:accumulo $ZOOKEEPER_HOME
+RUN set -eux; \
+    cd /opt; \
+    wget -q https://archive.apache.org/dist/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz; \
+    tar -xzf apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz; \
+    mkdir -p ${ZOOKEEPER_HOME}; \
+    cp -r apache-zookeeper-${ZOOKEEPER_VERSION}-bin/* ${ZOOKEEPER_HOME}/; \
+    rm -rf apache-zookeeper-${ZOOKEEPER_VERSION}-bin apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz; \
+    test -d ${ZOOKEEPER_HOME}/lib || (echo "ERROR: ZooKeeper lib directory still missing" && ls -R ${ZOOKEEPER_HOME} && exit 1); \
+    chown -R accumulo:accumulo ${ZOOKEEPER_HOME}; \
+    echo "✅ ZooKeeper installed at ${ZOOKEEPER_HOME} with lib populated"
+
+# Download and install Alluxio client JARs
+ENV ALLUXIO_VERSION=2.9.4
+# Download and install Alluxio client jars
+RUN set -eux; \
+    mkdir -p /opt/alluxio/client; \
+    wget -q https://downloads.alluxio.io/downloads/files/${ALLUXIO_VERSION}/alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
+    tar -xzf alluxio-${ALLUXIO_VERSION}-bin.tar.gz -C /opt; \
+    if [ -d /opt/alluxio-${ALLUXIO_VERSION}/assembly/client ]; then \
+        cp /opt/alluxio-${ALLUXIO_VERSION}/assembly/client/*.jar /opt/alluxio/client/; \
+    elif [ -d /opt/alluxio-${ALLUXIO_VERSION}/client ]; then \
+        cp /opt/alluxio-${ALLUXIO_VERSION}/client/*.jar /opt/alluxio/client/; \
+    else \
+        echo "ERROR: Alluxio client jars not found" && ls -R /opt/alluxio-${ALLUXIO_VERSION} && exit 1; \
+    fi; \
+    rm -rf /opt/alluxio-${ALLUXIO_VERSION} alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
+    chown -R accumulo:accumulo /opt/alluxio; \
+    echo "✅ Alluxio client installed at /opt/alluxio/client"
+
+
 
 # Copy Accumulo distribution (built from source)
 COPY --chown=accumulo:accumulo dist/ $ACCUMULO_HOME/
+
+# Ensure Accumulo lib directory exists
+RUN mkdir -p $ACCUMULO_HOME/lib && chown -R accumulo:accumulo $ACCUMULO_HOME
+
+# Add ZooKeeper and Hadoop jars to classpath
+ENV ACCUMULO_CLASSPATH="$ACCUMULO_HOME/lib/*:$ZOOKEEPER_HOME/lib/*:$HADOOP_HOME/share/hadoop/common/*:$HADOOP_HOME/share/hadoop/hdfs/*"
+
+
 
 # Create necessary directories
 RUN mkdir -p $ACCUMULO_HOME/logs $ACCUMULO_HOME/walogs $ACCUMULO_HOME/conf && \
@@ -77,9 +114,13 @@ RUN echo 'export JAVA_HOME=/opt/java/openjdk' >> /etc/environment && \
     echo 'export ZOOKEEPER_HOME=/opt/zookeeper' >> /etc/environment && \
     echo 'export ACCUMULO_HOME=/opt/accumulo' >> /etc/environment
 
+RUN ln -s $ZOOKEEPER_HOME/lib/*.jar $ACCUMULO_HOME/lib/ || true
+
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+
 
 # Switch to accumulo user
 USER accumulo
@@ -94,6 +135,7 @@ ENV ACCUMULO_CONF_DIR=$ACCUMULO_HOME/conf
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD $ACCUMULO_HOME/bin/accumulo info || exit 1
+
 
 # Default command
 ENTRYPOINT ["docker-entrypoint.sh"]
