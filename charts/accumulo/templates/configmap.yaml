@@ -233,6 +233,8 @@ data:
     # S3 configuration
     alluxio.underfs.s3.endpoint={{ .Values.storage.s3.endpoint }}
     alluxio.underfs.s3.region={{ .Values.storage.s3.region }}
+    alluxio.underfs.s3.signatureVersion: v4a
+    alluxio.underfs.s3.path.style.access: true
     s3a.access.key={{ .Values.storage.s3.accessKey }}
     s3a.secret.key={{ .Values.storage.s3.secretKey }}
     {{- else if eq .Values.storage.provider "minio" }}
@@ -240,6 +242,8 @@ data:
     alluxio.underfs.s3.endpoint={{ .Values.storage.minio.endpoint }}
     alluxio.underfs.s3.disable.dns.buckets=true
     alluxio.underfs.s3.inherit.acl=false
+    alluxio.underfs.s3.signatureVersion: v4a
+    alluxio.underfs.s3.path.style.access: true
     s3a.access.key={{ .Values.storage.minio.accessKey }}
     s3a.secret.key={{ .Values.storage.minio.secretKey }}
     {{- else if eq .Values.storage.provider "gcs" }}
