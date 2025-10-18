@@ -91,6 +91,12 @@ RUN set -eux; \
     chown -R accumulo:accumulo /opt/alluxio; \
     echo "✅ Alluxio client installed at /opt/alluxio/client"
 
+# Add missing XML parser dependencies for Alluxio client
+RUN curl -L -o /opt/alluxio/client/woodstox-core-6.4.0.jar https://repo1.maven.org/maven2/com/fasterxml/woodstox/woodstox-core/6.4.0/woodstox-core-6.4.0.jar && \
+    curl -L -o /opt/alluxio/client/stax2-api-4.2.1.jar https://repo1.maven.org/maven2/org/codehaus/woodstox/stax2-api/4.2.1/stax2-api-4.2.1.jar && \
+    chown -R accumulo:accumulo /opt/alluxio
+RUN wget -q https://repo1.maven.org/maven2/commons-collections/commons-collections/3.2.2/commons-collections-3.2.2.jar \
+    -O /opt/alluxio/client/commons-collections-3.2.2.jar
 
 
 # Copy Accumulo distribution (built from source)
@@ -98,6 +104,10 @@ COPY --chown=accumulo:accumulo dist/ $ACCUMULO_HOME/
 
 # Ensure Accumulo lib directory exists
 RUN mkdir -p $ACCUMULO_HOME/lib && chown -R accumulo:accumulo $ACCUMULO_HOME
+
+# After you place Alluxio client + its deps
+RUN cp /opt/alluxio/client/*.jar $ACCUMULO_HOME/lib/
+
 
 # Add ZooKeeper and Hadoop jars to classpath
 ENV ACCUMULO_CLASSPATH="$ACCUMULO_HOME/lib/*:$ZOOKEEPER_HOME/lib/*:$HADOOP_HOME/share/hadoop/common/*:$HADOOP_HOME/share/hadoop/hdfs/*"

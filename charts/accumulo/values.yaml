@@ -50,7 +50,8 @@ accumulo:
     # Instance secret (change before deployment!)
     secret: "DEFAULT_CHANGE_ME"
     # Instance volumes - will use Alluxio
-    volumes: "alluxio://alluxio-master:19998/accumulo"
+    volumes: "alluxio://accumulo-alluxio-master:19998/accumulo"
+    #volumes: "alluxio://alluxio-master:19998/accumulo"
     
   # Accumulo image configuration
   image:
@@ -240,7 +241,7 @@ storage:
     
   # MinIO configuration (for local development)
   minio:
-    endpoint: "http://minio:9000"
+    endpoint: "http://accumulo-minio-minio:9000"
     bucket: "accumulo-data"
     accessKey: "minioadmin"
     secretKey: "minioadmin"

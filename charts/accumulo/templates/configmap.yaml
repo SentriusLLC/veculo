@@ -67,7 +67,7 @@ data:
     ## Alluxio-specific configuration
     general.vfs.context.class.name=org.apache.accumulo.core.spi.fs.VolumeChooserEnvironment
     general.vfs.cache.dir=/tmp/accumulo-vfs-cache
-    fs.alluxio.impl=alluxio.hadoop.FileSystem
+    general.vfs.classpaths=file:///opt/alluxio/client/.*\.jar
 
   accumulo-env.sh: |
     #!/usr/bin/env bash
@@ -101,11 +101,17 @@ data:
     ZK_JARS=$(find "${ZOOKEEPER_HOME}" -maxdepth 1 -name '*.jar' -not -name '*slf4j*' -not -name '*log4j*' | paste -sd: -)
     CLASSPATH="${CLASSPATH}:${ZOOKEEPER_HOME}/*:${ZK_JARS}"
 
-    # Add Alluxio client libraries
     if [ -d "/opt/alluxio/client" ]; then
       ALLUXIO_JARS=$(find /opt/alluxio/client -maxdepth 1 -name '*.jar' | paste -sd: -)
-      CLASSPATH="${CLASSPATH}:/opt/alluxio/client/*:${ALLUXIO_JARS}"
+      export ALLUXIO_JARS
+      export HADOOP_USER_CLASSPATH_FIRST=true
+      export ACCUMULO_CLASSPATH="${ACCUMULO_CLASSPATH}:${ALLUXIO_JARS}"
+      export CLASSPATH="${CLASSPATH}:${ALLUXIO_JARS}"
     fi
+
+    # Tell Accumulo startup scripts to use this classpath as-is
+    export ACCUMULO_USE_CUSTOM_CLASSPATH=true
+
 
     export CLASSPATH
 
@@ -212,7 +218,9 @@ data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage (Master)
     ## Master configuration
-    alluxio.master.hostname=${env.POD_IP}
+    #alluxio.master.hostname=${env.POD_IP}
+    alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
+    #alluxio.master.hostname=accumulo-alluxio-master
     alluxio.master.port=19998
     alluxio.master.web.port=19999
     alluxio.master.journal.type=UFS
