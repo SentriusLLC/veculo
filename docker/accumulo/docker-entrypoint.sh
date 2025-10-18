@@ -20,8 +20,14 @@
 
 set -euo pipefail
 
+# Set environment variables for Accumulo, Hadoop, and ZooKeeper
+export JAVA_HOME=${JAVA_HOME:-/opt/java/openjdk}
+export HADOOP_HOME=${HADOOP_HOME:-/opt/hadoop}
+export ZOOKEEPER_HOME=${ZOOKEEPER_HOME:-/opt/zookeeper}
+export ACCUMULO_HOME=${ACCUMULO_HOME:-/opt/accumulo}
+
 # Default configuration directory
-ACCUMULO_CONF_DIR=${ACCUMULO_CONF_DIR:-"$ACCUMULO_HOME"/conf}
+export ACCUMULO_CONF_DIR=${ACCUMULO_CONF_DIR:-"$ACCUMULO_HOME"/conf}
 
 # Function to wait for a service to be available
 wait_for_service() {
