@@ -75,7 +75,8 @@ RUN set -eux; \
     echo "✅ ZooKeeper installed at ${ZOOKEEPER_HOME} with lib populated"
 
 # Download and install Alluxio client (binaries + JARs)
-ENV ALLUXIO_VERSION=2.9.4
+# Using 2.10+ for Java 17 support (Accumulo 4.x requires Java 17)
+ENV ALLUXIO_VERSION=2.10.1
 RUN set -eux; \
     mkdir -p /opt/alluxio/client; \
     wget -q https://downloads.alluxio.io/downloads/files/${ALLUXIO_VERSION}/alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
