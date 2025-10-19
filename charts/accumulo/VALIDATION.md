@@ -31,6 +31,16 @@ The Accumulo Helm chart includes comprehensive validation to ensure:
 4. **Data directories are created** in Alluxio
 5. **Integration between Accumulo and Alluxio** works correctly
 
+## Prerequisites
+
+The validation mechanisms require:
+
+- **Docker Image**: Accumulo image must include the Alluxio client binaries at `/opt/alluxio/client/bin/alluxio`
+  - The official image includes Alluxio 2.9.4 client with full CLI support
+  - See [Docker README](../../../docker/README.md) for details on the Alluxio client installation
+- **Kubernetes**: Version 1.19+ with proper network connectivity between pods
+- **Helm**: Version 3.2.0+ for deploying the chart
+
 ## Validation Layers
 
 ### 1. Init Container Validation
