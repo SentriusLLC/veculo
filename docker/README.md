@@ -8,10 +8,10 @@ The Docker image includes:
 - Apache Accumulo 4.0.0-SNAPSHOT
 - Hadoop 3.3.6 client libraries
 - ZooKeeper 3.8.4 client libraries
-- **Alluxio 2.10.1 client (binaries + JARs)** for filesystem integration
+- **Alluxio 2.9.4 client (binaries + JARs)** for filesystem integration, patched for Java 17 compatibility
 - Java 17 (Eclipse Temurin)
 
-**Note**: Alluxio 2.10+ is required for Java 17 compatibility. Earlier versions (2.9.x and below) only support Java 8 or 11.
+**Note**: Alluxio 2.9.4 is patched to accept Java 17. The original version only officially supports Java 8 or 11, but the client JARs work correctly with Java 17 for basic filesystem operations. The alluxio CLI script is patched during image build to accept Java 17.
 
 ### Alluxio Client Integration
 

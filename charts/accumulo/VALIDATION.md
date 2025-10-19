@@ -36,9 +36,9 @@ The Accumulo Helm chart includes comprehensive validation to ensure:
 The validation mechanisms require:
 
 - **Docker Image**: Accumulo image must include the Alluxio client binaries at `/opt/alluxio/client/bin/alluxio`
-  - The official image includes Alluxio 2.10.1 client with full CLI support (Java 17 compatible)
+  - The official image includes Alluxio 2.9.4 client, patched for Java 17 compatibility
   - See [Docker README](../../../docker/README.md) for details on the Alluxio client installation
-  - Note: Alluxio 2.10+ is required for Java 17 compatibility (Accumulo 4.x requirement)
+  - Note: The Alluxio CLI script is patched during image build to accept Java 17 (required by Accumulo 4.x)
 - **Kubernetes**: Version 1.19+ with proper network connectivity between pods
 - **Helm**: Version 3.2.0+ for deploying the chart
 

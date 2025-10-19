@@ -75,8 +75,8 @@ RUN set -eux; \
     echo "✅ ZooKeeper installed at ${ZOOKEEPER_HOME} with lib populated"
 
 # Download and install Alluxio client (binaries + JARs)
-# Using 2.10+ for Java 17 support (Accumulo 4.x requires Java 17)
-ENV ALLUXIO_VERSION=2.10.1
+# Using 2.9.4 with Java version check patched for Java 17 compatibility
+ENV ALLUXIO_VERSION=2.9.4
 RUN set -eux; \
     mkdir -p /opt/alluxio/client; \
     wget -q https://downloads.alluxio.io/downloads/files/${ALLUXIO_VERSION}/alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
@@ -96,6 +96,9 @@ RUN set -eux; \
     cp -r /opt/alluxio-full/lib/* /opt/alluxio/client/lib/ 2>/dev/null || true; \
     cp -r /opt/alluxio-full/conf/* /opt/alluxio/client/conf/ 2>/dev/null || true; \
     cp -r /opt/alluxio-full/libexec/* /opt/alluxio/client/libexec/ 2>/dev/null || true; \
+    # Patch the alluxio script to accept Java 17 \
+    sed -i 's/JAVA_VERSION="\${JAVA_VERSION:-8}"/JAVA_VERSION="${JAVA_VERSION:-17}"/' /opt/alluxio/client/bin/alluxio; \
+    sed -i 's/java_version_check 8 11/java_version_check 8 11 17/' /opt/alluxio/client/bin/alluxio; \
     # Clean up full installation, keep only client \
     rm -rf /opt/alluxio-full alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
     # Verify the CLI exists and required files \
