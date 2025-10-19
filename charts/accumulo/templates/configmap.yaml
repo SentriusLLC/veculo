@@ -220,11 +220,18 @@ data:
     ## Master configuration
     #alluxio.master.hostname=${env.POD_IP}
     alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
+    alluxio.job.master.enabled=true
     #alluxio.master.hostname=accumulo-alluxio-master
     alluxio.master.port=19998
     alluxio.master.web.port=19999
     alluxio.master.journal.type=UFS
     alluxio.master.journal.folder=/opt/alluxio/journal
+
+    # Internal (what the master itself uses to talk to its own components)
+    alluxio.job.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
+    alluxio.job.master.bind.host=0.0.0.0
+    alluxio.job.master.rpc.port=20001
+    alluxio.job.master.port=20001
 
     ## Under storage system configuration
     {{- include "accumulo.storageConfig" . | nindent 4 }}
@@ -279,11 +286,17 @@ data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage (Worker)
     ## Worker configuration
-    #alluxio.worker.hostname=${env.POD_IP}
+    alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
+    alluxio.master.rpc.port=19998
+    alluxio.master.web.port=19999
+    alluxio.worker.hostname={{ include "accumulo.fullname" . }}-alluxio-worker
     alluxio.worker.port=29999
     alluxio.worker.web.port=30000
     alluxio.worker.data.port=29999
     alluxio.worker.rpc.port=29999
+    alluxio.worker.rpc.bind.host=0.0.0.0
+    alluxio.worker.data.bind.host=0.0.0.0
+    alluxio.worker.web.bind.host=0.0.0.0
 
     ## Memory and storage configuration
     alluxio.worker.memory.size={{ .Values.alluxio.properties.alluxio.worker.memory.size }}
