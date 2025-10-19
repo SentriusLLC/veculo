@@ -189,6 +189,6 @@ curl http://localhost:9995/
 
 ## Related Documentation
 
-- [VALIDATION.md](../VALIDATION.md) - Comprehensive validation guide
-- [DEPLOYMENT.md](../DEPLOYMENT.md) - Deployment procedures
-- [README.md](../README.md) - Chart overview and configuration
+- [VALIDATION.md](../VALIDATION.md) - Accumulo Initialization Validation
+- [DEPLOYMENT.md](../DEPLOYMENT.md) - Deployment Guide
+- [README.md](../README.md) - Apache Accumulo Helm Chart
