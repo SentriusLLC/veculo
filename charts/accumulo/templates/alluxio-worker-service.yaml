@@ -26,6 +26,7 @@ metadata:
     app.kubernetes.io/component: alluxio-worker
 spec:
   clusterIP: None  # headless
+  publishNotReadyAddresses: true  # Enable DNS for all pods including not ready
   ports:
     - name: rpc
       port: 29999
