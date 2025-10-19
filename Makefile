@@ -116,6 +116,12 @@ test: ## Run smoke tests
 	./scripts/helm-deploy.sh test -r $(RELEASE_NAME) -n $(NAMESPACE)
 	$(call log_success,"Tests completed successfully")
 
+.PHONY: validate-init
+validate-init: ## Validate Accumulo initialization with Alluxio
+	$(call log_info,"Validating Accumulo initialization...")
+	./scripts/validate-accumulo-init.sh $(RELEASE_NAME) $(NAMESPACE)
+	$(call log_success,"Validation completed")
+
 .PHONY: status
 status: ## Show deployment status
 	./scripts/helm-deploy.sh status -r $(RELEASE_NAME) -n $(NAMESPACE)

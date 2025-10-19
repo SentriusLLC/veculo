@@ -122,7 +122,27 @@ helm install accumulo-dev ./charts/accumulo \
 kubectl wait --for=condition=Ready pod --all --timeout=600s
 ```
 
-### 3. Run Smoke Tests
+### 3. Validate Initialization
+
+Before running tests, validate that Accumulo initialized correctly with Alluxio:
+
+```bash
+# Run the validation script
+./scripts/validate-accumulo-init.sh accumulo-dev default
+
+# Or use the Makefile target
+make validate-init RELEASE_NAME=accumulo-dev
+```
+
+The validation script checks:
+- All pods are running (ZooKeeper, Alluxio, Accumulo components)
+- Services have endpoints
+- Alluxio Master is accessible
+- Accumulo instance is properly initialized in ZooKeeper
+- Accumulo data directories exist in Alluxio filesystem
+- Alluxio client libraries are available
+
+### 4. Run Smoke Tests
 
 ```bash
 # Run the built-in smoke tests
@@ -132,7 +152,14 @@ helm test accumulo-dev
 kubectl logs accumulo-dev-smoke-test
 ```
 
-### 4. Access Services
+The smoke tests validate:
+- All services are accessible (ZooKeeper, Alluxio, Accumulo)
+- Accumulo table operations work correctly
+- Data can be written and read from Alluxio
+- Alluxio filesystem integration is functional
+- Monitor web interface is available
+
+### 5. Access Services
 
 ```bash
 # Access Accumulo Monitor (web UI)
@@ -148,7 +175,7 @@ kubectl port-forward svc/accumulo-dev-minio 9001:9001 &
 echo "MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
 ```
 
-### 5. Connect with Accumulo Shell
+### 6. Connect with Accumulo Shell
 
 ```bash
 # Get a shell into the manager pod

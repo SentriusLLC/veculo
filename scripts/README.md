@@ -91,6 +91,36 @@ Comprehensive Helm deployment helper with dependency management.
 - Support for all Helm operations (install, upgrade, uninstall, test, status)
 - Comprehensive error handling and logging
 
+### `validate-accumulo-init.sh`
+Validates that Accumulo has been properly initialized with Alluxio storage.
+
+**Usage:**
+```bash
+# Validate with default parameters
+./scripts/validate-accumulo-init.sh
+
+# Validate specific release
+./scripts/validate-accumulo-init.sh accumulo-prod production accumulo-instance
+
+# Use with Make
+make validate-init RELEASE_NAME=accumulo-dev NAMESPACE=default
+```
+
+**Validates:**
+- Kubernetes cluster connectivity
+- Helm release exists
+- All required pods are running (ZooKeeper, Alluxio, Accumulo components)
+- Services have proper endpoints
+- Alluxio Master is accessible
+- Accumulo instance is initialized in ZooKeeper
+- Alluxio filesystem integration is working
+- Accumulo data directories exist in Alluxio
+- Alluxio client libraries are available
+
+**Exit Codes:**
+- `0`: All critical validations passed
+- `1`: One or more critical validations failed
+
 ## Quick Start Workflow
 
 ### 1. Development Setup

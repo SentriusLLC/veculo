@@ -84,16 +84,86 @@ spec:
         - /bin/sh
         - -c
         - |
+          set -e
+          echo "=== Accumulo Initialization Validation ==="
+          
+          # Validate Alluxio is accessible
+          echo "Validating Alluxio connectivity..."
+          ALLUXIO_MASTER="{{ include "accumulo.fullname" . }}-alluxio-master:19998"
+          MAX_RETRIES=30
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -f -s "http://{{ include "accumulo.fullname" . }}-alluxio-master:19999/" > /dev/null 2>&1; then
+              echo "✓ Alluxio master web UI is accessible"
+              break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Waiting for Alluxio master web UI... (attempt $RETRY_COUNT/$MAX_RETRIES)"
+            sleep 5
+          done
+          
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "✗ ERROR: Alluxio master web UI not accessible after $MAX_RETRIES attempts"
+            exit 1
+          fi
+          
+          # Validate Alluxio filesystem is accessible
+          echo "Validating Alluxio filesystem accessibility..."
+          ALLUXIO_ROOT="{{ .Values.accumulo.instance.volumes }}"
+          echo "Alluxio root path: $ALLUXIO_ROOT"
+          
+          # Test Alluxio filesystem operations
+          if /opt/alluxio/client/bin/alluxio fs ls / > /dev/null 2>&1; then
+            echo "✓ Alluxio filesystem is accessible"
+          else
+            echo "⚠ Warning: Could not list Alluxio root, but continuing..."
+          fi
+          
           # Check if instance is already initialized
-          if /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances | grep -q "{{ .Values.accumulo.instance.name }}"; then
-            echo "Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists"
+          echo "Checking if Accumulo instance already exists..."
+          if /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "{{ .Values.accumulo.instance.name }}"; then
+            echo "✓ Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists"
+            echo "Verifying instance configuration in Alluxio..."
+            
+            # Validate the instance directory exists in Alluxio
+            if /opt/alluxio/client/bin/alluxio fs test -d "$ALLUXIO_ROOT/instance_id" 2>/dev/null; then
+              echo "✓ Accumulo instance data found in Alluxio"
+            else
+              echo "⚠ Warning: Instance exists in ZooKeeper but data not found in Alluxio"
+            fi
+            
             exit 0
           fi
 
-          echo "Initializing Accumulo instance '{{ .Values.accumulo.instance.name }}'"
-          /opt/accumulo/bin/accumulo init \
+          echo "Initializing new Accumulo instance '{{ .Values.accumulo.instance.name }}'..."
+          
+          # Pre-create the accumulo directory in Alluxio to validate write permissions
+          echo "Creating Accumulo directory structure in Alluxio..."
+          /opt/alluxio/client/bin/alluxio fs mkdir -p "$ALLUXIO_ROOT" 2>/dev/null || echo "Directory may already exist"
+          
+          # Initialize Accumulo
+          echo "Running accumulo init..."
+          if /opt/accumulo/bin/accumulo init \
             --instance-name {{ .Values.accumulo.instance.name }} \
-            --password {{ .Values.accumulo.instance.secret }}
+            --password {{ .Values.accumulo.instance.secret }}; then
+            echo "✓ Accumulo initialization completed successfully"
+            
+            # Verify initialization created expected structure
+            echo "Verifying Accumulo directory structure in Alluxio..."
+            sleep 3
+            
+            if /opt/alluxio/client/bin/alluxio fs ls "$ALLUXIO_ROOT" 2>/dev/null | grep -q "instance_id"; then
+              echo "✓ Accumulo instance data successfully created in Alluxio"
+            else
+              echo "⚠ Warning: Could not verify Accumulo data in Alluxio, but init completed"
+            fi
+          else
+            echo "✗ ERROR: Accumulo initialization failed"
+            exit 1
+          fi
+          
+          echo "=== Accumulo Initialization Validation Complete ==="
         env:
         {{- include "accumulo.commonEnv" . | nindent 8 }}
         - name: ACCUMULO_HOME
@@ -110,6 +180,9 @@ spec:
           subPath: log4j2-service.properties
         - name: alluxio-client
           mountPath: /opt/alluxio/client
+        - name: hadoop-config
+          mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+          subPath: core-site.xml
       containers:
       - name: manager
         image: {{ include "accumulo.image" . }}

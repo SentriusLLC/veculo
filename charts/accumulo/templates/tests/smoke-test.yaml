@@ -124,8 +124,36 @@ spec:
       
       # Check if data is being stored in Alluxio
       echo "Checking Alluxio master status..."
-      curl -f {{ include "accumulo.fullname" . }}-alluxio-master:19999/ > /dev/null
-      echo "SUCCESS: Alluxio master is accessible"
+      if curl -f {{ include "accumulo.fullname" . }}-alluxio-master:19999/ > /dev/null 2>&1; then
+        echo "SUCCESS: Alluxio master web interface is accessible"
+      else
+        echo "FAILED: Alluxio master web interface is not accessible"
+        exit 1
+      fi
+      
+      # Verify Alluxio filesystem has Accumulo data
+      echo "Verifying Accumulo data in Alluxio filesystem..."
+      ALLUXIO_ROOT="{{ .Values.accumulo.instance.volumes }}"
+      echo "Checking Alluxio path: $ALLUXIO_ROOT"
+      
+      # Check if Accumulo instance directory exists
+      if /opt/alluxio/client/bin/alluxio fs test -d "$ALLUXIO_ROOT/instance_id" 2>/dev/null; then
+        echo "SUCCESS: Accumulo instance data found in Alluxio at $ALLUXIO_ROOT"
+      else
+        echo "WARNING: Accumulo instance directory not found at expected location"
+      fi
+      
+      # List Accumulo directories in Alluxio
+      echo "Listing Accumulo directories in Alluxio:"
+      /opt/alluxio/client/bin/alluxio fs ls "$ALLUXIO_ROOT" 2>/dev/null || echo "Could not list directory"
+      
+      # Check Alluxio cache statistics
+      echo "Checking Alluxio cache statistics..."
+      if curl -s {{ include "accumulo.fullname" . }}-alluxio-master:19999/metrics 2>/dev/null | grep -q "alluxio"; then
+        echo "SUCCESS: Alluxio metrics are available"
+      else
+        echo "WARNING: Could not retrieve Alluxio metrics"
+      fi
       
       echo "=== Testing Monitor Web Interface ==="
       
@@ -153,9 +181,20 @@ spec:
     - name: accumulo-config
       mountPath: /opt/accumulo/conf/accumulo-env.sh
       subPath: accumulo-env.sh
+    - name: alluxio-client
+      mountPath: /opt/alluxio/client
+    - name: hadoop-config
+      mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+      subPath: core-site.xml
   volumes:
   - name: accumulo-config
     configMap:
       name: {{ include "accumulo.fullname" . }}-config
       defaultMode: 0755
+  - name: alluxio-client
+    hostPath:
+      path: /srv/alluxio/client
+  - name: hadoop-config
+    configMap:
+      name: {{ include "accumulo.fullname" . }}-core-site
 {{- end }}
