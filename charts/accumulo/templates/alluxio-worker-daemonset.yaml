@@ -56,7 +56,7 @@ spec:
         - |
           # Wait for master to be ready
           echo "Waiting for Alluxio master to be ready..."
-          until (echo > /dev/tcp/accumulo-alluxio-master/19998) >/dev/null 2>&1; do
+          until (echo > /dev/tcp/{{include "accumulo.fullname" .}}-alluxio-master/19998) >/dev/null 2>&1; do
             echo "Waiting for master..."
             sleep 5
           done
@@ -71,12 +71,19 @@ spec:
 
           # Start worker
           /opt/alluxio/bin/alluxio-start.sh worker
+          
+          # Start job worker
+          /opt/alluxio/bin/alluxio-start.sh job_worker
 
           # Keep container running and monitor process
           while true; do
             if ! pgrep -f "alluxio.worker.AlluxioWorker" > /dev/null; then
               echo "Alluxio worker process died, restarting..."
               /opt/alluxio/bin/alluxio-start.sh worker
+            fi
+            if ! pgrep -f "alluxio.worker.AlluxioJobWorker" > /dev/null; then
+              echo "Alluxio job worker process died, restarting..."
+              /opt/alluxio/bin/alluxio-start.sh job_worker
             fi
             sleep 30
           done
@@ -85,17 +92,36 @@ spec:
           containerPort: 29999
           protocol: TCP
         - name: data
-          containerPort: 29999
+          containerPort: 29998
           protocol: TCP
         - name: web
           containerPort: 30000
+          protocol: TCP
+        - name: job-rpc
+          containerPort: 30002
+          protocol: TCP
+        - name: job-data
+          containerPort: 30003
+          protocol: TCP
+        - name: job-web
+          containerPort: 30004
           protocol: TCP
         env:
         - name: POD_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        - name: WORKER_HOSTNAME
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ALLUXIO_WORKER_HOSTNAME
+          value: "$(POD_NAME).{{ include "accumulo.fullname" . }}-alluxio-worker.$(POD_NAMESPACE).svc.cluster.local"
+        - name: ALLUXIO_JOB_WORKER_HOSTNAME
           value: "$(POD_NAME).{{ include "accumulo.fullname" . }}-alluxio-worker.$(POD_NAMESPACE).svc.cluster.local"
         - name: ALLUXIO_MASTER_HOSTNAME
           value: {{include "accumulo.fullname" .}}-alluxio-master

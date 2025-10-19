@@ -65,12 +65,19 @@ spec:
 
           # Start master
           /opt/alluxio/bin/alluxio-start.sh master
+          
+          # Start job master
+          /opt/alluxio/bin/alluxio-start.sh job_master
 
           # Keep container running and monitor process
           while true; do
             if ! pgrep -f "alluxio.master.AlluxioMaster" > /dev/null; then
               echo "Alluxio master process died, restarting..."
               /opt/alluxio/bin/alluxio-start.sh master
+            fi
+            if ! pgrep -f "alluxio.master.AlluxioJobMaster" > /dev/null; then
+              echo "Alluxio job master process died, restarting..."
+              /opt/alluxio/bin/alluxio-start.sh job_master
             fi
             sleep 30
           done
@@ -80,6 +87,9 @@ spec:
           protocol: TCP
         - name: web
           containerPort: 19999
+          protocol: TCP
+        - name: job-rpc
+          containerPort: 20001
           protocol: TCP
         env:
         - name: ALLUXIO_MASTER_HOSTNAME
