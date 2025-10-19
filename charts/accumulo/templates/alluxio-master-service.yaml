@@ -40,6 +40,10 @@ spec:
     port: 19999
     targetPort: web
     protocol: TCP
+  - name: job-rpc
+    port: 20001
+    targetPort: job-rpc
+    protocol: TCP
   selector:
     {{- include "accumulo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: alluxio-master

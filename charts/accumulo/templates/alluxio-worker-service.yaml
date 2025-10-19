@@ -31,9 +31,25 @@ spec:
       port: 29999
       targetPort: rpc
       protocol: TCP
+    - name: data
+      port: 29998
+      targetPort: data
+      protocol: TCP
     - name: web
       port: 30000
       targetPort: web
+      protocol: TCP
+    - name: job-rpc
+      port: 30002
+      targetPort: job-rpc
+      protocol: TCP
+    - name: job-data
+      port: 30003
+      targetPort: job-data
+      protocol: TCP
+    - name: job-web
+      port: 30004
+      targetPort: job-web
       protocol: TCP
   selector:
     {{- include "accumulo.selectorLabels" . | nindent 4 }}

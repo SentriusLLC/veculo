@@ -81,6 +81,9 @@ spec:
         - name: web
           containerPort: 19999
           protocol: TCP
+        - name: job-rpc
+          containerPort: 20001
+          protocol: TCP
         env:
         - name: ALLUXIO_MASTER_HOSTNAME
           valueFrom:
