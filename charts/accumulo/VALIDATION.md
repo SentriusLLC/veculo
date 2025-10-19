@@ -40,14 +40,15 @@ The `init-accumulo` container in the manager deployment performs pre-initializat
 **Location**: `charts/accumulo/templates/accumulo-manager-deployment.yaml`
 
 **Checks Performed**:
-- ✓ Alluxio Master web UI is accessible
-- ✓ Alluxio filesystem can be queried
-- ✓ Accumulo instance doesn't already exist (idempotent)
+- ✓ Alluxio Master web UI is accessible (HTTP GET to port 19999)
+- ✓ Alluxio filesystem is accessible (required - fails if not accessible)
+- ✓ Accumulo instance doesn't already exist (idempotent check)
+- ✓ If instance exists: instance_id file must be present in Alluxio (critical check - fails if missing)
 - ✓ Write permissions to Alluxio filesystem
 - ✓ Accumulo initialization completes successfully
-- ✓ Expected directory structure is created in Alluxio
+- ✓ instance_id file is created in Alluxio (critical check - fails if missing)
 
-**Example Output**:
+**Example Output (New Installation)**:
 ```
 === Accumulo Initialization Validation ===
 Validating Alluxio connectivity...
@@ -60,9 +61,23 @@ Initializing new Accumulo instance 'accumulo'...
 Creating Accumulo directory structure in Alluxio...
 Running accumulo init...
 ✓ Accumulo initialization completed successfully
-Verifying Accumulo directory structure in Alluxio...
-✓ Accumulo instance data successfully created in Alluxio
+Verifying Accumulo instance_id file in Alluxio...
+✓ Accumulo instance_id file successfully created in Alluxio
 === Accumulo Initialization Validation Complete ===
+```
+
+**Example Output (Existing Installation)**:
+```
+=== Accumulo Initialization Validation ===
+Validating Alluxio connectivity...
+✓ Alluxio master web UI is accessible
+Validating Alluxio filesystem accessibility...
+Alluxio root path: alluxio://accumulo-alluxio-master:19998/accumulo
+✓ Alluxio filesystem is accessible
+Checking if Accumulo instance already exists...
+✓ Accumulo instance 'accumulo' already exists in ZooKeeper
+Verifying instance_id file exists in Alluxio...
+✓ Accumulo instance_id file found in Alluxio at alluxio://accumulo-alluxio-master:19998/accumulo/instance_id
 ```
 
 ### 2. Helm Smoke Tests
@@ -223,10 +238,56 @@ kubectl logs <manager-pod> -c init-accumulo
 ```
 
 **Common issues**:
-- Alluxio master not ready: Wait for Alluxio to fully start
-- ZooKeeper not accessible: Check ZooKeeper pod and service
-- Permissions issues: Verify service account has proper RBAC permissions
-- Storage backend not configured: Check Alluxio mount configuration
+- **Alluxio filesystem not accessible**: Initialization will fail immediately. Ensure Alluxio is fully started and accessible.
+- **Instance exists but instance_id file missing**: Critical error indicating corrupted state. See detailed resolution below.
+- **ZooKeeper not accessible**: Check ZooKeeper pod and service
+- **Permissions issues**: Verify service account has proper RBAC permissions
+- **Storage backend not configured**: Check Alluxio mount configuration
+
+#### Critical Error: Instance exists in ZooKeeper but instance_id file not found in Alluxio
+
+This error occurs when Accumulo is registered in ZooKeeper but the critical `instance_id` file is missing from Alluxio:
+
+```bash
+✗ ERROR: Instance exists in ZooKeeper but instance_id file not found in Alluxio
+Expected file: alluxio://accumulo-alluxio-master:19998/accumulo/instance_id
+This indicates a corrupted or incomplete Accumulo installation
+```
+
+**Root Causes**:
+1. Alluxio storage backend was cleared/reset while ZooKeeper data remained
+2. Alluxio mount configuration changed after Accumulo was initialized  
+3. Storage backend credentials or permissions changed
+4. Different storage backend is being used than during initialization
+5. Previous incomplete initialization
+
+**Resolution Steps**:
+
+```bash
+# Step 1: Verify current state
+kubectl exec deployment/accumulo-manager -c manager -- \
+  /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances
+
+kubectl exec deployment/accumulo-manager -- \
+  /opt/alluxio/client/bin/alluxio fs ls alluxio://accumulo-alluxio-master:19998/accumulo
+
+# Step 2: Choose resolution approach
+
+# Option A: Clean reinstall (DESTROYS ALL DATA)
+kubectl delete pvc -l app.kubernetes.io/name=zookeeper
+kubectl delete pvc -l app.kubernetes.io/name=minio  # if using MinIO
+helm uninstall accumulo
+helm install accumulo ./charts/accumulo -f values.yaml
+
+# Option B: Fix Alluxio mount (if storage backend exists but mount is wrong)
+# Update values.yaml with correct storage configuration
+helm upgrade accumulo ./charts/accumulo -f corrected-values.yaml
+kubectl delete pod -l app.kubernetes.io/component=alluxio-master
+kubectl delete pod -l app.kubernetes.io/component=manager
+
+# Option C: Restore from backup
+# Restore instance_id and other Accumulo files to Alluxio storage backend
+```
 
 ### Smoke Test Fails
 

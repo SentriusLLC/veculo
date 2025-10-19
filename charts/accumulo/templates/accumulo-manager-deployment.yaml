@@ -113,24 +113,29 @@ spec:
           ALLUXIO_ROOT="{{ .Values.accumulo.instance.volumes }}"
           echo "Alluxio root path: $ALLUXIO_ROOT"
           
-          # Test Alluxio filesystem operations
-          if /opt/alluxio/client/bin/alluxio fs ls / > /dev/null 2>&1; then
-            echo "✓ Alluxio filesystem is accessible"
-          else
-            echo "⚠ Warning: Could not list Alluxio root, but continuing..."
+          # Test Alluxio filesystem operations - this is critical, must succeed
+          if ! /opt/alluxio/client/bin/alluxio fs ls / > /dev/null 2>&1; then
+            echo "✗ ERROR: Cannot access Alluxio filesystem"
+            echo "This indicates Alluxio is not properly configured or not accessible"
+            exit 1
           fi
+          echo "✓ Alluxio filesystem is accessible"
           
           # Check if instance is already initialized
           echo "Checking if Accumulo instance already exists..."
           if /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "{{ .Values.accumulo.instance.name }}"; then
-            echo "✓ Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists"
-            echo "Verifying instance configuration in Alluxio..."
+            echo "✓ Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists in ZooKeeper"
+            echo "Verifying instance_id file exists in Alluxio..."
             
-            # Validate the instance directory exists in Alluxio
-            if /opt/alluxio/client/bin/alluxio fs test -d "$ALLUXIO_ROOT/instance_id" 2>/dev/null; then
-              echo "✓ Accumulo instance data found in Alluxio"
+            # Validate the instance_id FILE exists in Alluxio (not directory)
+            if /opt/alluxio/client/bin/alluxio fs test -e "$ALLUXIO_ROOT/instance_id" 2>/dev/null; then
+              echo "✓ Accumulo instance_id file found in Alluxio at $ALLUXIO_ROOT/instance_id"
             else
-              echo "⚠ Warning: Instance exists in ZooKeeper but data not found in Alluxio"
+              echo "✗ ERROR: Instance exists in ZooKeeper but instance_id file not found in Alluxio"
+              echo "Expected file: $ALLUXIO_ROOT/instance_id"
+              echo "This indicates a corrupted or incomplete Accumulo installation"
+              echo "Please check Alluxio mount configuration and reinitialize Accumulo"
+              exit 1
             fi
             
             exit 0
@@ -150,13 +155,16 @@ spec:
             echo "✓ Accumulo initialization completed successfully"
             
             # Verify initialization created expected structure
-            echo "Verifying Accumulo directory structure in Alluxio..."
+            echo "Verifying Accumulo instance_id file in Alluxio..."
             sleep 3
             
-            if /opt/alluxio/client/bin/alluxio fs ls "$ALLUXIO_ROOT" 2>/dev/null | grep -q "instance_id"; then
-              echo "✓ Accumulo instance data successfully created in Alluxio"
+            if /opt/alluxio/client/bin/alluxio fs test -e "$ALLUXIO_ROOT/instance_id" 2>/dev/null; then
+              echo "✓ Accumulo instance_id file successfully created in Alluxio"
             else
-              echo "⚠ Warning: Could not verify Accumulo data in Alluxio, but init completed"
+              echo "✗ ERROR: Accumulo initialization completed but instance_id file not found in Alluxio"
+              echo "Expected file: $ALLUXIO_ROOT/instance_id"
+              echo "This may indicate Alluxio mount issues or permissions problems"
+              exit 1
             fi
           else
             echo "✗ ERROR: Accumulo initialization failed"
