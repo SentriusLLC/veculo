@@ -17,6 +17,8 @@ The image includes the full Alluxio client installation at `/opt/alluxio/client`
 - **CLI Tool**: `/opt/alluxio/client/bin/alluxio` - Command-line interface for Alluxio filesystem operations
 - **Client JARs**: `/opt/alluxio/client/*.jar` - Alluxio client libraries copied to Accumulo's classpath
 - **Libraries**: `/opt/alluxio/client/lib/` - Required dependencies for the CLI tool
+- **Configuration**: `/opt/alluxio/client/conf/` - Alluxio configuration files
+- **Scripts**: `/opt/alluxio/client/libexec/` - Helper scripts required by the CLI (alluxio-config.sh, etc.)
 
 This enables:
 1. Accumulo to read/write data to Alluxio filesystem via the client JARs

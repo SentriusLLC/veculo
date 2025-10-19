@@ -89,17 +89,17 @@ RUN set -eux; \
     if [ -d /opt/alluxio-full/client ] && [ "$(ls -A /opt/alluxio-full/client/*.jar 2>/dev/null)" ]; then \
         cp /opt/alluxio-full/client/*.jar /opt/alluxio/client/ 2>/dev/null || true; \
     fi; \
-    # Create bin directory with the alluxio client CLI \
-    mkdir -p /opt/alluxio/client/bin; \
+    # Copy necessary directories for CLI to work \
+    mkdir -p /opt/alluxio/client/bin /opt/alluxio/client/lib /opt/alluxio/client/conf /opt/alluxio/client/libexec; \
     cp /opt/alluxio-full/bin/alluxio /opt/alluxio/client/bin/; \
-    # Copy necessary configuration and lib directories for CLI \
-    mkdir -p /opt/alluxio/client/lib /opt/alluxio/client/conf; \
     cp -r /opt/alluxio-full/lib/* /opt/alluxio/client/lib/ 2>/dev/null || true; \
     cp -r /opt/alluxio-full/conf/* /opt/alluxio/client/conf/ 2>/dev/null || true; \
+    cp -r /opt/alluxio-full/libexec/* /opt/alluxio/client/libexec/ 2>/dev/null || true; \
     # Clean up full installation, keep only client \
     rm -rf /opt/alluxio-full alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
-    # Verify the CLI exists \
+    # Verify the CLI exists and required files \
     test -f /opt/alluxio/client/bin/alluxio || (echo "ERROR: Alluxio CLI not found" && exit 1); \
+    test -f /opt/alluxio/client/libexec/alluxio-config.sh || (echo "ERROR: alluxio-config.sh not found" && exit 1); \
     chown -R accumulo:accumulo /opt/alluxio; \
     echo "✅ Alluxio client (binaries + JARs) installed at /opt/alluxio/client"
 
