@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,17 +18,6 @@
 # under the License.
 #
 
----
-{{- if .Values.auth.serviceAccount.create -}}
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{include "accumulo.serviceAccountName" .}}
-  labels:
-    {{- include "accumulo.labels" . | nindent 4 }}
-  {{- with .Values.auth.serviceAccount.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-automountServiceAccountToken: true
-{{- end }}
+
+minikube ssh "docker rmi accumulo/accumulo:4.0.0-SNAPSHOT || true"
+minikube image load accumulo/accumulo:4.0.0-SNAPSHOT

@@ -881,7 +881,7 @@ under the License.
             <configFile>${rootlocation}/src/build/eclipse-codestyle.xml</configFile>
             <excludes>
               <exclude>**/thrift/*.java</exclude>
-                <exclude>**/charts/**</exclude>
+              <exclude>**/charts/**</exclude>
             </excludes>
             <lineEnding>LF</lineEnding>
             <skipCssFormatting>true</skipCssFormatting>

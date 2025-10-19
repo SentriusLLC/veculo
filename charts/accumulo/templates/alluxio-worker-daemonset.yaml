@@ -95,6 +95,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: WORKER_HOSTNAME
+          value: "$(POD_NAME).{{ include "accumulo.fullname" . }}-alluxio-worker.$(POD_NAMESPACE).svc.cluster.local"
         - name: ALLUXIO_MASTER_HOSTNAME
           value: {{include "accumulo.fullname" .}}-alluxio-master
         {{- if eq .Values.storage.provider "s3" }}

@@ -80,6 +80,8 @@ spec:
           value: "/opt/accumulo"
         - name: ACCUMULO_SERVICE_INSTANCE
           value: "compactor"
+        - name: ALLUXIO_CLIENT_HOME
+          value: "/opt/alluxio/client"
         volumeMounts:
         - name: accumulo-config
           mountPath: /opt/accumulo/conf/accumulo.properties
@@ -92,6 +94,11 @@ spec:
           subPath: log4j2-service.properties
         - name: logs
           mountPath: /opt/accumulo/logs
+        - name: alluxio-client
+          mountPath: /opt/alluxio/client
+        - name: hadoop-config
+          mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+          subPath: core-site.xml
         resources:
           {{- toYaml .Values.accumulo.resources.compactor | nindent 10 }}
       volumes:
@@ -101,4 +108,10 @@ spec:
           defaultMode: 0755
       - name: logs
         emptyDir: {}
+      - name: alluxio-client
+        hostPath:
+          path: /srv/alluxio/client
+      - name: hadoop-config
+        configMap:
+          name: {{ include "accumulo.fullname" . }}-core-site
 {{- end }}
