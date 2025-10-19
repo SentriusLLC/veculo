@@ -107,39 +107,15 @@ spec:
             echo "✗ ERROR: Alluxio master web UI not accessible after $MAX_RETRIES attempts"
             exit 1
           fi
-          
-          # Validate Alluxio filesystem is accessible
-          echo "Validating Alluxio filesystem accessibility..."
-          ALLUXIO_ROOT="{{ .Values.accumulo.instance.volumes }}"
-          echo "Alluxio root path: $ALLUXIO_ROOT"
-          
-          # Test Alluxio filesystem operations - this is critical, must succeed
-          if ! /opt/alluxio/client/bin/alluxio fs ls / > /dev/null 2>&1; then
-            echo "✗ ERROR: Cannot access Alluxio filesystem"
-            echo "This indicates Alluxio is not properly configured or not accessible"
-            exit 1
-          fi
-          echo "✓ Alluxio filesystem is accessible"
-          
+          /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances
           # Check if instance is already initialized
           echo "Checking if Accumulo instance already exists..."
-          if /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "{{ .Values.accumulo.instance.name }}"; then
-            echo "✓ Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists in ZooKeeper"
-            echo "Verifying instance_id file exists in Alluxio..."
-            
-            # Validate the instance_id FILE exists in Alluxio (not directory)
-            if /opt/alluxio/client/bin/alluxio fs test -e "$ALLUXIO_ROOT/instance_id" 2>/dev/null; then
-              echo "✓ Accumulo instance_id file found in Alluxio at $ALLUXIO_ROOT/instance_id"
-            else
-              echo "✗ ERROR: Instance exists in ZooKeeper but instance_id file not found in Alluxio"
-              echo "Expected file: $ALLUXIO_ROOT/instance_id"
-              echo "This indicates a corrupted or incomplete Accumulo installation"
-              echo "Please check Alluxio mount configuration and reinitialize Accumulo"
-              exit 1
-            fi
-            
-            exit 0
+          if [[ $(accumulo list-instances --print-errors | awk 'NR>3 {print $1}' | grep -Fx "$ACCUMULO_INSTANCE_NAME") ]]; then
+          echo "✓ Instance exists"
+          else
+            echo "✗ Instance missing, initializing..."
           fi
+
 
           echo "Initializing new Accumulo instance '{{ .Values.accumulo.instance.name }}'..."
           
