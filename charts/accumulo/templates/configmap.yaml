@@ -289,7 +289,7 @@ data:
     alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
     alluxio.master.rpc.port=19998
     alluxio.master.web.port=19999
-    alluxio.worker.hostname=${env.POD_IP}
+    # Worker hostname set via ALLUXIO_WORKER_HOSTNAME environment variable
     alluxio.worker.bind.host=0.0.0.0
     alluxio.worker.port=29999
     alluxio.worker.web.port=30000
@@ -302,7 +302,7 @@ data:
     ## Job worker configuration
     alluxio.job.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
     alluxio.job.master.rpc.port=20001
-    alluxio.job.worker.hostname=${env.POD_IP}
+    # Job worker hostname set via ALLUXIO_JOB_WORKER_HOSTNAME environment variable
     alluxio.job.worker.bind.host=0.0.0.0
     alluxio.job.worker.rpc.port=30002
     alluxio.job.worker.data.port=30003
