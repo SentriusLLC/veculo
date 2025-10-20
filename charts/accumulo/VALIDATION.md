@@ -300,6 +300,53 @@ kubectl delete pod -l app.kubernetes.io/component=manager
 # Restore instance_id and other Accumulo files to Alluxio storage backend
 ```
 
+#### Error: Unable to resolve host accumulo-alluxio-worker-XXXXX
+
+This error occurs during Accumulo initialization when trying to write data via Alluxio workers:
+
+```bash
+java.io.IOException: Failed to cache: Unable to resolve host accumulo-alluxio-worker-nbb7g
+```
+
+**Root Cause**: Alluxio workers are advertising individual pod hostnames, but Kubernetes DNS resolution requires fully qualified domain names (FQDNs) for pods behind a headless service.
+
+**Solution**: The chart configures Alluxio workers to use FQDNs in the format:
+```
+<pod-name>.<service-name>.<namespace>.svc.cluster.local
+```
+
+This configuration is already included in the chart. If you encounter this error:
+
+1. **Verify headless service exists**:
+```bash
+kubectl get svc -l app.kubernetes.io/component=alluxio-worker
+# Should show clusterIP: None
+```
+
+2. **Check worker configuration**:
+```bash
+kubectl exec daemonset/accumulo-alluxio-worker -- \
+  cat /opt/alluxio/conf/alluxio-site.properties | grep worker.hostname
+# Should show: alluxio.worker.hostname=<pod>.accumulo-alluxio-worker.<namespace>.svc.cluster.local
+```
+
+3. **Test DNS resolution**:
+```bash
+kubectl run test --rm -it --image=busybox --restart=Never -- \
+  nslookup <pod-name>.accumulo-alluxio-worker.<namespace>.svc.cluster.local
+```
+
+4. **If DNS fails**, ensure:
+   - CoreDNS or kube-dns is running properly
+   - Network policies allow DNS queries
+   - Pod's `/etc/resolv.conf` has correct search domains
+
+5. **Restart workers if needed**:
+```bash
+kubectl rollout restart daemonset accumulo-alluxio-worker
+```
+```
+
 ### Smoke Test Fails
 
 **Check test logs**:

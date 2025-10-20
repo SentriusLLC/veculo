@@ -298,6 +298,8 @@ data:
     alluxio.worker.rpc.bind.host=0.0.0.0
     alluxio.worker.data.bind.host=0.0.0.0
     alluxio.worker.web.bind.host=0.0.0.0
+    # Use FQDN for worker hostname resolution in Kubernetes
+    alluxio.worker.hostname=${env.POD_NAME}.{{ include "accumulo.fullname" . }}-alluxio-worker.${env.POD_NAMESPACE}.svc.cluster.local
     
     ## Job worker configuration
     alluxio.job.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
@@ -307,6 +309,8 @@ data:
     alluxio.job.worker.rpc.port=30002
     alluxio.job.worker.data.port=30003
     alluxio.job.worker.web.port=30004
+    # Use FQDN for job worker hostname resolution in Kubernetes
+    alluxio.job.worker.hostname=${env.POD_NAME}.{{ include "accumulo.fullname" . }}-alluxio-worker.${env.POD_NAMESPACE}.svc.cluster.local
 
     ## Memory and storage configuration
     alluxio.worker.memory.size={{ .Values.alluxio.properties.alluxio.worker.memory.size }}
@@ -378,5 +382,21 @@ data:
         <property>
             <name>fs.AbstractFileSystem.alluxio.impl</name>
             <value>alluxio.hadoop.AlluxioFileSystem</value>
+        </property>
+        <!-- Alluxio client configuration for Kubernetes DNS resolution -->
+        <property>
+            <name>alluxio.user.hostname</name>
+            <value>${env.POD_NAME}.{{ include "accumulo.fullname" . }}-alluxio-worker.${env.POD_NAMESPACE}.svc.cluster.local</value>
+            <description>Client hostname for Alluxio operations</description>
+        </property>
+        <property>
+            <name>alluxio.user.network.netty.channel</name>
+            <value>EPOLL</value>
+            <description>Use EPOLL for better network performance</description>
+        </property>
+        <property>
+            <name>alluxio.user.network.writer.close.timeout</name>
+            <value>120s</value>
+            <description>Timeout for closing network connections</description>
         </property>
     </configuration>
