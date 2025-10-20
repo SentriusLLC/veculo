@@ -112,7 +112,8 @@ spec:
           INSTANCE_EXISTS=false
           
           # Use ListInstances to check ZooKeeper (works with Java 17)
-          if /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "{{ .Values.accumulo.instance.name }}"; then
+          # Match instance name with quotes to avoid false positives from ZooKeeper hostname
+          if /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "\"{{ .Values.accumulo.instance.name }}\""; then
             echo "✓ Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists in ZooKeeper"
             INSTANCE_EXISTS=true
             
