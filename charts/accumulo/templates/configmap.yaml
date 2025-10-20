@@ -289,7 +289,7 @@ data:
     alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
     alluxio.master.rpc.port=19998
     alluxio.master.web.port=19999
-    # Worker hostname set via ALLUXIO_WORKER_HOSTNAME environment variable
+    # Worker hostname will be set via ALLUXIO_WORKER_HOSTNAME environment variable in deployment
     alluxio.worker.bind.host=0.0.0.0
     alluxio.worker.port=29999
     alluxio.worker.web.port=30000
@@ -302,7 +302,7 @@ data:
     ## Job worker configuration
     alluxio.job.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
     alluxio.job.master.rpc.port=20001
-    # Job worker hostname set via ALLUXIO_JOB_WORKER_HOSTNAME environment variable
+    # Job worker hostname will be set via ALLUXIO_JOB_WORKER_HOSTNAME environment variable in deployment
     alluxio.job.worker.bind.host=0.0.0.0
     alluxio.job.worker.rpc.port=30002
     alluxio.job.worker.data.port=30003
@@ -378,5 +378,26 @@ data:
         <property>
             <name>fs.AbstractFileSystem.alluxio.impl</name>
             <value>alluxio.hadoop.AlluxioFileSystem</value>
+        </property>
+        <!-- Alluxio client configuration -->
+        <property>
+            <name>alluxio.master.hostname</name>
+            <value>{{ include "accumulo.fullname" . }}-alluxio-master</value>
+            <description>Alluxio master hostname</description>
+        </property>
+        <property>
+            <name>alluxio.master.rpc.port</name>
+            <value>19998</value>
+            <description>Alluxio master RPC port</description>
+        </property>
+        <property>
+            <name>alluxio.user.network.netty.channel</name>
+            <value>EPOLL</value>
+            <description>Use EPOLL for better network performance</description>
+        </property>
+        <property>
+            <name>alluxio.user.network.writer.close.timeout</name>
+            <value>120s</value>
+            <description>Timeout for closing network connections</description>
         </property>
     </configuration>

@@ -61,6 +61,19 @@ spec:
             sleep 5
           done
 
+          # Set worker hostname to FQDN for Kubernetes DNS resolution
+          WORKER_FQDN="${POD_NAME}.{{ include "accumulo.fullname" . }}-alluxio-worker.${POD_NAMESPACE}.svc.cluster.local"
+          echo "Setting Alluxio worker hostname to: ${WORKER_FQDN}"
+          
+          # Export as environment variables for Alluxio to pick up
+          export ALLUXIO_WORKER_HOSTNAME="${WORKER_FQDN}"
+          export ALLUXIO_JOB_WORKER_HOSTNAME="${WORKER_FQDN}"
+          
+          # Add to alluxio-site.properties dynamically
+          cat >> /opt/alluxio/conf/alluxio-site.properties <<EOF
+alluxio.worker.hostname=${WORKER_FQDN}
+alluxio.job.worker.hostname=${WORKER_FQDN}
+EOF
     
           # Create directories
           mkdir -p /opt/ramdisk
@@ -119,10 +132,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: ALLUXIO_WORKER_HOSTNAME
-          value: "$(POD_NAME).{{ include "accumulo.fullname" . }}-alluxio-worker.$(POD_NAMESPACE).svc.cluster.local"
-        - name: ALLUXIO_JOB_WORKER_HOSTNAME
-          value: "$(POD_NAME).{{ include "accumulo.fullname" . }}-alluxio-worker.$(POD_NAMESPACE).svc.cluster.local"
         - name: ALLUXIO_MASTER_HOSTNAME
           value: {{include "accumulo.fullname" .}}-alluxio-master
         {{- if eq .Values.storage.provider "s3" }}

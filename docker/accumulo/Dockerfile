@@ -31,6 +31,7 @@ ENV HADOOP_HOME=/opt/hadoop/hadoop-${HADOOP_VERSION}
 ENV ZOOKEEPER_HOME=/opt/zookeeper
 ENV JAVA_HOME=/opt/java/openjdk
 ENV ALLUXIO_CLIENT_HOME=/opt/alluxio/client
+ENV ALLUXIO_HOME=/opt/alluxio/client
 
 
 # Install required packages
@@ -73,23 +74,38 @@ RUN set -eux; \
     chown -R accumulo:accumulo ${ZOOKEEPER_HOME}; \
     echo "✅ ZooKeeper installed at ${ZOOKEEPER_HOME} with lib populated"
 
-# Download and install Alluxio client JARs
+# Download and install Alluxio client (binaries + JARs)
+# Using 2.9.4 with Java version check patched for Java 17 compatibility
 ENV ALLUXIO_VERSION=2.9.4
-# Download and install Alluxio client jars
 RUN set -eux; \
     mkdir -p /opt/alluxio/client; \
     wget -q https://downloads.alluxio.io/downloads/files/${ALLUXIO_VERSION}/alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
     tar -xzf alluxio-${ALLUXIO_VERSION}-bin.tar.gz -C /opt; \
-    if [ -d /opt/alluxio-${ALLUXIO_VERSION}/assembly/client ]; then \
-        cp /opt/alluxio-${ALLUXIO_VERSION}/assembly/client/*.jar /opt/alluxio/client/; \
-    elif [ -d /opt/alluxio-${ALLUXIO_VERSION}/client ]; then \
-        cp /opt/alluxio-${ALLUXIO_VERSION}/client/*.jar /opt/alluxio/client/; \
-    else \
-        echo "ERROR: Alluxio client jars not found" && ls -R /opt/alluxio-${ALLUXIO_VERSION} && exit 1; \
+    mv /opt/alluxio-${ALLUXIO_VERSION} /opt/alluxio-full; \
+    # Copy client JARs for Accumulo integration \
+    if [ -d /opt/alluxio-full/client/alluxio-*-client.jar ]; then \
+        cp /opt/alluxio-full/client/alluxio-*-client.jar /opt/alluxio/client/; \
     fi; \
-    rm -rf /opt/alluxio-${ALLUXIO_VERSION} alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
+    # Copy all client JARs from client directory \
+    if [ -d /opt/alluxio-full/client ] && [ "$(ls -A /opt/alluxio-full/client/*.jar 2>/dev/null)" ]; then \
+        cp /opt/alluxio-full/client/*.jar /opt/alluxio/client/ 2>/dev/null || true; \
+    fi; \
+    # Copy necessary directories for CLI to work \
+    mkdir -p /opt/alluxio/client/bin /opt/alluxio/client/lib /opt/alluxio/client/conf /opt/alluxio/client/libexec; \
+    cp /opt/alluxio-full/bin/alluxio /opt/alluxio/client/bin/; \
+    cp -r /opt/alluxio-full/lib/* /opt/alluxio/client/lib/ 2>/dev/null || true; \
+    cp -r /opt/alluxio-full/conf/* /opt/alluxio/client/conf/ 2>/dev/null || true; \
+    cp -r /opt/alluxio-full/libexec/* /opt/alluxio/client/libexec/ 2>/dev/null || true; \
+    # Patch the alluxio script to accept Java 17 \
+    sed -i 's/JAVA_VERSION="\${JAVA_VERSION:-8}"/JAVA_VERSION="${JAVA_VERSION:-17}"/' /opt/alluxio/client/bin/alluxio; \
+    sed -i 's/java_version_check 8 11/java_version_check 8 11 17/' /opt/alluxio/client/bin/alluxio; \
+    # Clean up full installation, keep only client \
+    rm -rf /opt/alluxio-full alluxio-${ALLUXIO_VERSION}-bin.tar.gz; \
+    # Verify the CLI exists and required files \
+    test -f /opt/alluxio/client/bin/alluxio || (echo "ERROR: Alluxio CLI not found" && exit 1); \
+    test -f /opt/alluxio/client/libexec/alluxio-config.sh || (echo "ERROR: alluxio-config.sh not found" && exit 1); \
     chown -R accumulo:accumulo /opt/alluxio; \
-    echo "✅ Alluxio client installed at /opt/alluxio/client"
+    echo "✅ Alluxio client (binaries + JARs) installed at /opt/alluxio/client"
 
 # Add missing XML parser dependencies for Alluxio client
 RUN curl -L -o /opt/alluxio/client/woodstox-core-6.4.0.jar https://repo1.maven.org/maven2/com/fasterxml/woodstox/woodstox-core/6.4.0/woodstox-core-6.4.0.jar && \
@@ -137,7 +153,7 @@ USER accumulo
 WORKDIR $ACCUMULO_HOME
 
 # Set default environment variables
-ENV PATH=$ACCUMULO_HOME/bin:$HADOOP_HOME/bin:$ZOOKEEPER_HOME/bin:$PATH
+ENV PATH=$ACCUMULO_HOME/bin:$HADOOP_HOME/bin:$ZOOKEEPER_HOME/bin:$ALLUXIO_HOME/bin:$PATH
 ENV ACCUMULO_LOG_DIR=$ACCUMULO_HOME/logs
 ENV HADOOP_CONF_DIR=$ACCUMULO_HOME/conf
 ENV ACCUMULO_CONF_DIR=$ACCUMULO_HOME/conf

@@ -181,4 +181,12 @@ Common environment variables for Accumulo containers
   value: {{ include "accumulo.zookeeperHosts" . | quote }}
 - name: ACCUMULO_LOG_DIR
   value: "/opt/accumulo/logs"
+- name: POD_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: POD_NAMESPACE
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.namespace
 {{- end }}

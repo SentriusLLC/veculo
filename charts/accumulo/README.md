@@ -231,6 +231,25 @@ curl http://localhost:19999/
 kubectl exec -it deployment/accumulo-manager -- /opt/accumulo/bin/accumulo shell -u root
 ```
 
+### Initialization Validation
+
+Validate that Accumulo initialized correctly with Alluxio:
+
+```bash
+# Using the validation script
+./scripts/validate-accumulo-init.sh <release-name> <namespace>
+
+# Or using Make
+make validate-init RELEASE_NAME=<release-name> NAMESPACE=<namespace>
+```
+
+The validation checks:
+- All pods and services are running
+- Alluxio Master is accessible and serving
+- Accumulo instance is initialized in ZooKeeper
+- Accumulo data directories exist in Alluxio
+- Alluxio client integration is working
+
 ### Smoke Tests
 
 Run the built-in smoke tests to validate deployment:
@@ -241,8 +260,9 @@ helm test <release-name>
 
 The smoke test validates:
 - All services are accessible
-- Accumulo table operations work
-- Alluxio integration is functional
+- Accumulo table operations work correctly
+- Data persistence through Alluxio
+- Alluxio filesystem integration
 - Monitor web interface is available
 
 ## Upgrade Guide
