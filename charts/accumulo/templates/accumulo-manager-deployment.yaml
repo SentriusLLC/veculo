@@ -107,44 +107,61 @@ spec:
             echo "✗ ERROR: Alluxio master web UI not accessible after $MAX_RETRIES attempts"
             exit 1
           fi
-          /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances
           # Check if instance is already initialized
           echo "Checking if Accumulo instance already exists..."
-          if [[ $(accumulo list-instances --print-errors | awk 'NR>3 {print $1}' | grep -Fx "$ACCUMULO_INSTANCE_NAME") ]]; then
-          echo "✓ Instance exists"
-          else
-            echo "✗ Instance missing, initializing..."
-          fi
-
-
-          echo "Initializing new Accumulo instance '{{ .Values.accumulo.instance.name }}'..."
-          
-          # Pre-create the accumulo directory in Alluxio to validate write permissions
-          echo "Creating Accumulo directory structure in Alluxio..."
-          /opt/alluxio/client/bin/alluxio fs mkdir -p "$ALLUXIO_ROOT" 2>/dev/null || echo "Directory may already exist"
-          
-          # Initialize Accumulo
-          echo "Running accumulo init..."
-          if /opt/accumulo/bin/accumulo init \
-            --instance-name {{ .Values.accumulo.instance.name }} \
-            --password {{ .Values.accumulo.instance.secret }}; then
-            echo "✓ Accumulo initialization completed successfully"
+          INSTANCE_EXISTS=false
+          if /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "{{ .Values.accumulo.instance.name }}"; then
+            echo "✓ Accumulo instance '{{ .Values.accumulo.instance.name }}' already exists"
+            INSTANCE_EXISTS=true
             
-            # Verify initialization created expected structure
-            echo "Verifying Accumulo instance_id file in Alluxio..."
-            sleep 3
-            
+            # Verify the instance_id file exists in Alluxio
+            echo "Verifying instance configuration in Alluxio..."
             if /opt/alluxio/client/bin/alluxio fs test -e "$ALLUXIO_ROOT/instance_id" 2>/dev/null; then
-              echo "✓ Accumulo instance_id file successfully created in Alluxio"
+              echo "✓ Accumulo instance_id file found in Alluxio"
             else
-              echo "✗ ERROR: Accumulo initialization completed but instance_id file not found in Alluxio"
+              echo "✗ ERROR: Instance exists in ZooKeeper but instance_id file not found in Alluxio"
               echo "Expected file: $ALLUXIO_ROOT/instance_id"
-              echo "This may indicate Alluxio mount issues or permissions problems"
+              echo "This indicates a corrupted or incomplete Accumulo installation"
+              echo "Resolution: Delete the ZooKeeper data and reinitialize, or restore instance_id to Alluxio"
               exit 1
             fi
           else
-            echo "✗ ERROR: Accumulo initialization failed"
-            exit 1
+            echo "Instance not found, will initialize..."
+          fi
+          
+          # Initialize Accumulo only if it doesn't exist
+          if [ "$INSTANCE_EXISTS" = "false" ]; then
+            echo "Initializing new Accumulo instance '{{ .Values.accumulo.instance.name }}'..."
+            
+            # Pre-create the accumulo directory in Alluxio to validate write permissions
+            echo "Creating Accumulo directory structure in Alluxio..."
+            /opt/alluxio/client/bin/alluxio fs mkdir -p "$ALLUXIO_ROOT" 2>/dev/null || echo "Directory may already exist"
+            
+            # Initialize Accumulo
+            echo "Running accumulo init..."
+            if /opt/accumulo/bin/accumulo init \
+              --instance-name {{ .Values.accumulo.instance.name }} \
+              --password {{ .Values.accumulo.instance.secret }}; then
+              echo "✓ Accumulo initialization completed successfully"
+              
+              # Verify initialization created expected structure
+              echo "Verifying Accumulo instance_id file in Alluxio..."
+              sleep 3
+              
+              if /opt/alluxio/client/bin/alluxio fs test -e "$ALLUXIO_ROOT/instance_id" 2>/dev/null; then
+                echo "✓ Accumulo instance_id file successfully created in Alluxio"
+              else
+                echo "✗ ERROR: Accumulo initialization completed but instance_id file not found in Alluxio"
+                echo "Expected file: $ALLUXIO_ROOT/instance_id"
+                echo "This may indicate Alluxio mount issues or permissions problems"
+                exit 1
+              fi
+            else
+              echo "✗ ERROR: Accumulo initialization failed"
+              exit 1
+            fi
+          else
+            echo "Skipping initialization - instance already exists"
           fi
           
           echo "=== Accumulo Initialization Validation Complete ==="
