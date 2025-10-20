@@ -61,26 +61,15 @@ spec:
             sleep 5
           done
 
-          # Set worker hostname to FQDN for Kubernetes DNS resolution
-          WORKER_FQDN="${POD_NAME}.{{ include "accumulo.fullname" . }}-alluxio-worker.${POD_NAMESPACE}.svc.cluster.local"
-          echo "Setting Alluxio worker hostname to: ${WORKER_FQDN}"
+          # Worker hostname is set via ALLUXIO_WORKER_HOSTNAME environment variable
+          echo "Alluxio worker hostname: ${ALLUXIO_WORKER_HOSTNAME}"
+          echo "Alluxio job worker hostname: ${ALLUXIO_JOB_WORKER_HOSTNAME}"
           
-          # Export as environment variables for Alluxio to pick up
-          export ALLUXIO_WORKER_HOSTNAME="${WORKER_FQDN}"
-          export ALLUXIO_JOB_WORKER_HOSTNAME="${WORKER_FQDN}"
-          
-          # Add to alluxio-site.properties dynamically
-          cat >> /opt/alluxio/conf/alluxio-site.properties <<EOF
-alluxio.worker.hostname=${WORKER_FQDN}
-alluxio.job.worker.hostname=${WORKER_FQDN}
-EOF
-    
           # Create directories
-          mkdir -p /opt/ramdisk
           mkdir -p /opt/alluxio/logs
 
-          # Mount ramdisk for memory tier
-          mount -t tmpfs -o size={{ .Values.alluxio.properties.alluxio.worker.memory.size }} tmpfs /opt/ramdisk
+          # Note: /opt/ramdisk is already mounted as emptyDir with medium: Memory
+          # No need to manually mount tmpfs
 
           # Start worker
           /opt/alluxio/bin/alluxio-start.sh worker
@@ -134,6 +123,10 @@ EOF
               fieldPath: metadata.namespace
         - name: ALLUXIO_MASTER_HOSTNAME
           value: {{include "accumulo.fullname" .}}-alluxio-master
+        - name: ALLUXIO_WORKER_HOSTNAME
+          value: "$(POD_NAME).{{ include "accumulo.fullname" . }}-alluxio-worker.$(POD_NAMESPACE).svc.cluster.local"
+        - name: ALLUXIO_JOB_WORKER_HOSTNAME
+          value: "$(POD_NAME).{{ include "accumulo.fullname" . }}-alluxio-worker.$(POD_NAMESPACE).svc.cluster.local"
         {{- if eq .Values.storage.provider "s3" }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
@@ -173,7 +166,7 @@ EOF
         resources:
           {{- toYaml .Values.alluxio.worker.resources | nindent 10 }}
         securityContext:
-          privileged: true  # Required for mounting tmpfs
+          privileged: false
         livenessProbe:
           httpGet:
             path: /

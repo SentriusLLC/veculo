@@ -89,7 +89,8 @@ init_accumulo() {
   wait_for_service "$zk_host" "$zk_port" "ZooKeeper"
 
   # Check if instance already exists
-  if "$ACCUMULO_HOME"/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "$ACCUMULO_INSTANCE_NAME"; then
+  # Match instance name with quotes to avoid false positives from ZooKeeper hostname
+  if "$ACCUMULO_HOME"/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "\"$ACCUMULO_INSTANCE_NAME\""; then
     echo "Accumulo instance '$ACCUMULO_INSTANCE_NAME' already exists"
   else
     echo "Initializing Accumulo instance '$ACCUMULO_INSTANCE_NAME'..."

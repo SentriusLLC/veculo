@@ -195,7 +195,8 @@ check_accumulo_init() {
   fi
   
   # Check if instance exists in ZooKeeper
-  if kubectl exec -n "$NAMESPACE" "$MANAGER_POD" -- /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "$INSTANCE_NAME"; then
+  # Match instance name with quotes to avoid false positives from ZooKeeper hostname
+  if kubectl exec -n "$NAMESPACE" "$MANAGER_POD" -- /opt/accumulo/bin/accumulo org.apache.accumulo.server.util.ListInstances 2>/dev/null | grep -q "\"$INSTANCE_NAME\""; then
     validate_check "Accumulo instance '$INSTANCE_NAME' exists in ZooKeeper" "pass"
   else
     validate_check "Accumulo instance '$INSTANCE_NAME' NOT found in ZooKeeper" "fail"
