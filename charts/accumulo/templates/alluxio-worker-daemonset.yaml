@@ -71,9 +71,21 @@ spec:
           
           # Add to alluxio-site.properties dynamically
           cat >> /opt/alluxio/conf/alluxio-site.properties <<EOF
-alluxio.worker.hostname=${WORKER_FQDN}
-alluxio.job.worker.hostname=${WORKER_FQDN}
-EOF
+            alluxio.worker.hostname=${WORKER_FQDN}
+            alluxio.job.worker.hostname=${WORKER_FQDN}
+          EOF
+
+          # Patch configuration dynamically
+          cat > /opt/alluxio/conf/alluxio-site.properties <<EOF
+          alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
+          alluxio.master.rpc.port=19998
+          alluxio.master.web.port=19999
+          alluxio.worker.hostname=${WORKER_FQDN}
+          alluxio.job.worker.hostname=${WORKER_FQDN}
+          alluxio.worker.rpc.bind.host=0.0.0.0
+          alluxio.worker.data.bind.host=0.0.0.0
+          alluxio.worker.web.bind.host=0.0.0.0
+          EOF
     
           # Create directories
           mkdir -p /opt/ramdisk

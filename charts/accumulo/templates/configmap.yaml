@@ -286,9 +286,9 @@ data:
   alluxio-site.properties: |
     # Alluxio configuration for Accumulo storage (Worker)
     ## Worker configuration
-    alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
-    alluxio.master.rpc.port=19998
-    alluxio.master.web.port=19999
+    #alluxio.master.hostname={{ include "accumulo.fullname" . }}-alluxio-master
+    #alluxio.master.rpc.port=19998
+    #alluxio.master.web.port=19999
     # Worker hostname will be set via ALLUXIO_WORKER_HOSTNAME environment variable in deployment
     alluxio.worker.bind.host=0.0.0.0
     alluxio.worker.port=29999
